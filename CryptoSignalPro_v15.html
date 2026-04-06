@@ -1558,7 +1558,7 @@ async function updateMTF(){
 
 const filters={trend:true,hh:true,atr:true,addon:true};
 const TF_LIMIT={'1m':500,'5m':500,'15m':300,'30m':300,'1h':300,'4h':200,'1d':100,'1w':60,'1M':36};
-const PIVOT_R={'1m':1,'5m':1,'15m':1,'30m':1,'1h':1,'4h':1,'1d':1,'1w':1,'1M':1};
+const PIVOT_R={'1m':2,'5m':1,'15m':1,'30m':1,'1h':1,'4h':1,'1d':1,'1w':1,'1M':1};
 let prevSig={lL:0,lS:0,lAL:0,lAS:0,lR:0,lSk:0};
 
 // ═══════════════════════════════════════
@@ -1768,7 +1768,7 @@ function filterSignals(cs,pL,pH,atr,ema50){
     // 필터4: 연속 LONG 간격 (타임프레임별로 다르게)
     if(ok&&vL.length>0){
       const prev=vL[vL.length-1];
-      const minGap={'1m':5,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
+      const minGap={'1m':10,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
       if(p.i-prev.i<(minGap[currentTF]||5))ok=false;
     }
 
@@ -1819,7 +1819,7 @@ function filterSignals(cs,pL,pH,atr,ema50){
     // 필터4 (신규): 연속 SHORT 신호 간격 (타임프레임별로 다르게)
     if(ok&&vH.length>0){
       const prev=vH[vH.length-1];
-      const minGap={'1m':5,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
+      const minGap={'1m':10,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
       if(p.i-prev.i<(minGap[currentTF]||5))ok=false;
     }
 
