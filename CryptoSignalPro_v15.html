@@ -2458,11 +2458,11 @@ let wsHeartbeat=null, wsLastMsg=0, wsReconnectCount=0;
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     setTimeout(()=>{
-      if(Date.now()-wsLastMsg>10000){
+      if(Date.now()-wsLastMsg>5000){
         console.log('탭 복귀 재연결');
         fetchCandles();
       }
-    },500);
+    },300);
   }
 });
 window.addEventListener('online',()=>{ console.log('인터넷 복구'); fetchCandles(); });
@@ -2476,7 +2476,6 @@ function startWS(){
   wsConn.onmessage=e=>{
     wsLastMsg=Date.now();
     wsReconnectCount=0;
-    // 바이낸스 ping 응답
     try{const j=JSON.parse(e.data);if(j.ping){wsConn.send(JSON.stringify({pong:j.ping}));return;}}catch(x){}
     const d=JSON.parse(e.data).k;
     if(!d)return;
@@ -2491,27 +2490,28 @@ function startWS(){
     }
     if(d.x||isNew) processAndRender();
   };
-  wsConn.onerror=()=>setLive(false,'오류');
+  wsConn.onerror=()=>{ setLive(false,'오류'); };
   wsConn.onclose=()=>{
     setLive(false,'재연결 중...');
     if(wsHeartbeat){clearInterval(wsHeartbeat);wsHeartbeat=null;}
     wsReconnectCount=(wsReconnectCount||0)+1;
-    const _delay=Math.min(wsReconnectCount*1000+1000,5000);
-    setTimeout(()=>{if(wsConn?.readyState!==1)startWS();},_delay);
+    // 최대 3초 대기 후 재연결
+    const _delay=Math.min(wsReconnectCount*500+500,3000);
+    setTimeout(()=>{ if(!wsConn||wsConn.readyState!==1) startWS(); },_delay);
   };
   wsConn.onopen=()=>{
     setLive(true,'실시간');
-    // 하트비트: 10초마다 체크, 15초 무응답 시 재연결
     wsReconnectCount=0;
+    // 하트비트: 5초마다 체크, 10초 무응답 시 재연결
     wsHeartbeat=setInterval(()=>{
-      if(Date.now()-wsLastMsg>15000){
+      if(Date.now()-wsLastMsg>10000){
         console.log('WS timeout → 재연결');
         if(wsConn){try{wsConn.close();}catch(e){}}
         startWS();
       } else if(wsConn?.readyState===1){
         try{wsConn.send(JSON.stringify({method:'ping'}));}catch(e){}
       }
-    },10000);
+    },5000);
   };
 }
 
