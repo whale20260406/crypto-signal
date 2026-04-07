@@ -2563,7 +2563,8 @@ function setTF(tf){
 function toggleFilter(k){
   filters[k]=!filters[k];
   document.getElementById('ftog-'+k).classList.toggle('on',filters[k]);
-  processAndRender();
+  // 마커 즉시 재렌더링
+  if(allCandles.length) processAndRender();
 }
 function onPivotSlide(val){
   pivotLeft=parseInt(val);
