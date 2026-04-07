@@ -1799,23 +1799,21 @@ function filterSignals(cs,pL,pH,atr,ema50){
       if(p.i-prev.i<(minGap[currentTF]||5))ok=false;
     }
 
-    // 필터5: 핀바/강양봉 확인 (완화 — 음봉이어도 아랫꼬리 있으면 허용)
+    // 필터5: 핀바/강양봉 확인
     if(ok){
       const candle=cs[p.i];
       const body=Math.abs(candle.close-candle.open);
       const lowerWick=Math.min(candle.open,candle.close)-candle.low;
-      // 강한 음봉(꼬리 없음)만 제거, 아랫꼬리가 조금이라도 있으면 허용
-      if(lowerWick<body*0.3&&candle.close<candle.open)ok=false;
+      if(lowerWick<body*0.8&&candle.close<candle.open)ok=false;
     }
 
-    // ★ 필터6: 추매SHORT 활성 강한 하락추세 중 LONG 제거 (완화 — 3개 모두 충족 시만)
+    // ★ 필터6: 추매SHORT 활성 하락추세 중 LONG 제거
     if(ok){
       const bearStrong = isBearTrend(p.i, 14);
       const shortActive = hasActiveShortTrend(p.i);
       const emaDown = ema9w[p.i]<ema20[p.i] && ema20[p.i]<ema50[p.i];
-      // 세 조건 모두 충족 시만 LONG 제거 (기존: 2개 이상)
       const bearScore=(bearStrong?1:0)+(shortActive?1:0)+(emaDown?1:0);
-      if(bearScore>=3){ ok=false; }
+      if(bearScore>=2){ ok=false; }
     }
 
     if(ok)vL.push(p);else fc++;
