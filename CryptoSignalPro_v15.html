@@ -1793,7 +1793,7 @@ function filterSignals(cs,pL,pH,atr,ema50){
     // 필터4: 연속 LONG 간격 (타임프레임별로 다르게)
     if(ok&&vL.length>0){
       const prev=vL[vL.length-1];
-      const minGap={'1m':10,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
+      const minGap={'1m':5,'5m':3,'15m':4,'30m':3,'1h':3,'4h':2,'1d':2,'1w':2,'1M':1};
       if(p.i-prev.i<(minGap[currentTF]||5))ok=false;
     }
 
@@ -1844,7 +1844,7 @@ function filterSignals(cs,pL,pH,atr,ema50){
     // 필터4 (신규): 연속 SHORT 신호 간격 (타임프레임별로 다르게)
     if(ok&&vH.length>0){
       const prev=vH[vH.length-1];
-      const minGap={'1m':10,'5m':8,'15m':5,'30m':4,'1h':4,'4h':3,'1d':2,'1w':2,'1M':1};
+      const minGap={'1m':5,'5m':3,'15m':4,'30m':3,'1h':3,'4h':2,'1d':2,'1w':2,'1M':1};
       if(p.i-prev.i<(minGap[currentTF]||5))ok=false;
     }
 
