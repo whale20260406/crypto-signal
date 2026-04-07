@@ -212,7 +212,7 @@ body.light-mode{--bg0:#f0f2f5;--bg1:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border
 /* ── 차트 ── */
 .chart-area{flex:1;min-height:0;padding:3px 5px 2px;}
 #chart{width:100%;height:100%;}
-.legend{display:flex;gap:10px;padding:4px 12px;background:var(--bg1);border-top:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
+.legend{display:none;}
 
 
 .li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);white-space:nowrap;}
@@ -401,7 +401,19 @@ body.light-mode{--bg0:#f0f2f5;--bg1:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border
 
   <div class="err-box" id="errBox"></div>
 
-  <div class="sig-row" id="sigRow"><div class="pill pill-neu">로딩 중...</div></div>
+  <div class="sig-row" id="sigRow">
+    <div class="pill pill-neu">로딩 중...</div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0;">
+      <div class="li"><div class="ld" style="background:var(--long)"></div>LONG</div>
+      <div class="li"><div class="ld" style="background:var(--short)"></div>SHORT</div>
+      <div class="li"><div class="ld" style="background:var(--add-long)"></div>추매L</div>
+      <div class="li"><div class="ld" style="background:var(--add-short)"></div>추매S</div>
+      <div class="li"><div class="ld" style="background:#f7c948"></div>매집</div>
+      <div class="li"><div class="ld" style="background:#9b59b6"></div>분산</div>
+      <div class="li"><div class="ld" style="background:rgba(255,255,255,0.7);border-radius:0;height:2px;width:12px;"></div>EMA200</div>
+      <span style="font-size:10px;color:var(--muted);" id="liveClock2"></span>
+    </div>
+  </div>
 
   <div class="chart-area"><div id="chart"></div></div>
 
@@ -2560,13 +2572,16 @@ window.addEventListener('resize',()=>{
 // ── 실시간 시계 (UTC+9 한국시간) ──
 function updateClock(){
   const el=document.getElementById('liveClock');
-  if(!el) return;
+  const el2=document.getElementById('liveClock2');
+  if(!el&&!el2) return;
   const now=new Date();
   const kr=new Date(now.getTime()+9*3600*1000);
   const h=kr.getUTCHours().toString().padStart(2,'0');
   const m=kr.getUTCMinutes().toString().padStart(2,'0');
   const s=kr.getUTCSeconds().toString().padStart(2,'0');
-  el.textContent=`${h}:${m}:${s}`;
+  const t=`${h}:${m}:${s}`;
+  if(el) el.textContent=t;
+  if(el2) el2.textContent=t;
 }
 setInterval(updateClock,1000);
 updateClock();
