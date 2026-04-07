@@ -717,6 +717,8 @@ function triggerAlarm(type, coinId, price) {
 // 상태
 // ═══════════════════════════════════════
 let currentCoin='BTC',currentTF='5m',allCandles=[],wsConn=null,chart,candleSeries,volChart,volSeries,ema200Series,pivotLeft=10;
+// 한번 뜬 신호는 사라지지 않게 고정
+let lockedMarkers={}; // {coinTF: [{time,position,color,shape,text,size}]}
 let isDarkMode=true;
 const signalHistory=[];
 
@@ -2245,7 +2247,21 @@ function renderMarkers(vL,vH,aL,aS,rockets,skulls){
       }
     }
   }
-  const dd = [...byTime.values()].sort((a,b)=>a.time-b.time);
+
+  // ── 한번 뜬 신호 고정 (사라짐 방지) ──
+  const key = currentCoin + '_' + currentTF;
+  if(!lockedMarkers[key]) lockedMarkers[key] = {};
+  // 새 신호 고정에 추가
+  for(const [t, m] of byTime){
+    if(!lockedMarkers[key][t]){
+      lockedMarkers[key][t] = m;
+    }
+  }
+  // 고정된 신호 + 현재 신호 합치기 (현재 신호 우선)
+  const merged = new Map(Object.entries(lockedMarkers[key]).map(([t,m])=>[Number(t),m]));
+  for(const [t,m] of byTime) merged.set(t, m);
+
+  const dd = [...merged.values()].sort((a,b)=>a.time-b.time);
   candleSeries.setMarkers(dd);
 }
 
@@ -2535,6 +2551,8 @@ function setCoin(id){
   Object.keys(whaleMarkersMap).forEach(k=>delete whaleMarkersMap[k]);
   mtfStrongMarkers=[];
   prevMTFDir='';
+  // 고정 마커 초기화
+  lockedMarkers[id+'_'+currentTF]={};
   whaleBuf.win.total=0; if(whaleBuf.win.timer){clearTimeout(whaleBuf.win.timer);whaleBuf.win.timer=null;}
   whaleBuf.wout.total=0; if(whaleBuf.wout.timer){clearTimeout(whaleBuf.wout.timer);whaleBuf.wout.timer=null;}
   allCandles=[];document.getElementById('loading').style.display='flex';fetchCandles();
