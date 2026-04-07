@@ -210,9 +210,20 @@ body.light-mode{--bg0:#f0f2f5;--bg1:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border
 .pill-neu{background:var(--bg3);color:var(--muted);border-color:var(--border2);}
 
 /* ── 차트 ── */
-.chart-area{flex:1;min-height:0;padding:3px 5px 2px;}
+.chart-area{flex:1;min-height:0;padding:3px 5px 2px;position:relative;}
 #chart{width:100%;height:100%;}
 .legend{display:none;}
+/* 트레이딩뷰 스타일 시계 — 시간축 오른쪽 하단 */
+#chartClock{
+  position:absolute;
+  bottom:4px;right:8px;
+  font-size:11px;font-weight:600;
+  color:rgba(255,255,255,0.7);
+  background:rgba(7,11,15,0.75);
+  padding:2px 7px;border-radius:4px;
+  pointer-events:none;z-index:10;
+  letter-spacing:0.03em;
+}
 
 
 .li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);white-space:nowrap;}
@@ -411,11 +422,13 @@ body.light-mode{--bg0:#f0f2f5;--bg1:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;--border
       <div class="li"><div class="ld" style="background:#f7c948"></div>매집</div>
       <div class="li"><div class="ld" style="background:#9b59b6"></div>분산</div>
       <div class="li"><div class="ld" style="background:rgba(255,255,255,0.7);border-radius:0;height:2px;width:12px;"></div>EMA200</div>
-      <span style="font-size:10px;color:var(--muted);" id="liveClock2"></span>
     </div>
   </div>
 
-  <div class="chart-area"><div id="chart"></div></div>
+  <div class="chart-area">
+    <div id="chart"></div>
+    <div id="chartClock">00:00:00 UTC+9</div>
+  </div>
 
   <div class="legend">
     <div class="li"><div class="ld" style="background:var(--long)"></div>LONG</div>
@@ -2573,7 +2586,8 @@ window.addEventListener('resize',()=>{
 function updateClock(){
   const el=document.getElementById('liveClock');
   const el2=document.getElementById('liveClock2');
-  if(!el&&!el2) return;
+  const el3=document.getElementById('chartClock');
+  if(!el&&!el2&&!el3) return;
   const now=new Date();
   const kr=new Date(now.getTime()+9*3600*1000);
   const h=kr.getUTCHours().toString().padStart(2,'0');
@@ -2582,6 +2596,7 @@ function updateClock(){
   const t=`${h}:${m}:${s}`;
   if(el) el.textContent=t;
   if(el2) el2.textContent=t;
+  if(el3) el3.textContent=`${t} UTC+9`;
 }
 setInterval(updateClock,1000);
 updateClock();
