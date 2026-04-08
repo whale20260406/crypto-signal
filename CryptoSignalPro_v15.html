@@ -2208,8 +2208,8 @@ function renderMarkers(vL,vH,aL,aS,rockets,skulls){
   }
 
   // 🚀💀 매집/분산 완료 (차단시 50% 흐리게)
-  for(const p of (rockets||[])) all.push({time:p.time,position:'belowBar',color:blockLong?'rgba(247,201,72,0.5)':'#f7c948',shape:'circle',text:'',size:1.2});
-  for(const p of (skulls||[]))  all.push({time:p.time,position:'aboveBar',color:blockShort?'rgba(155,89,182,0.5)':'#9b59b6',shape:'circle',text:'',size:1.2});
+  for(const p of (rockets||[])) all.push({time:p.time,position:'belowBar',color:blockLong?'rgba(0,200,150,0.15)':'rgba(0,200,150,0.5)',shape:'arrowUp',text:'매집',size:0.8});
+  for(const p of (skulls||[]))  all.push({time:p.time,position:'aboveBar',color:blockShort?'rgba(255,71,87,0.15)':'rgba(255,71,87,0.5)',shape:'arrowDown',text:'분산',size:0.8});
 
   // 메인 신호 (차단시 50% 흐리게)
   for(const p of vL) all.push({time:p.time,position:'belowBar',color:blockLong?'rgba(0,200,150,0.5)':'#00c896',shape:'arrowUp',  text:blockLong?'':'LONG',     size:blockLong?1.2:2});
