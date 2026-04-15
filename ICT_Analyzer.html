@@ -39,11 +39,13 @@
   .topbar {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 8px 10px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .logo {
@@ -58,11 +60,14 @@
   .symbol-btns {
     display: flex;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  .symbol-btns::-webkit-scrollbar { display: none; }
 
   .sym-btn {
-    padding: 4px 10px;
+    padding: 6px 12px;
     border: 1px solid var(--border);
     background: transparent;
     color: var(--muted);
@@ -71,6 +76,8 @@
     cursor: pointer;
     font-family: 'Space Mono', monospace;
     transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .sym-btn:hover, .sym-btn.active {
     border-color: var(--accent);
@@ -82,7 +89,11 @@
     display: flex;
     gap: 4px;
     margin-left: auto;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  .tf-btns::-webkit-scrollbar { display: none; }
   .tf-btn {
     padding: 4px 8px;
     border: 1px solid var(--border);
@@ -611,13 +622,13 @@ function drawFVG(bull, bear, data) {
 
   recent_bull.forEach(fvg => {
     if (!layers.fvgBull) return;
-    const s = chart.addRectanglePrimitive ? null : addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,212,255,0.12)', '#00d4ff');
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,180,255,0.35)', '#00b4ff', 2);
     fvgBullSeries.push(s);
   });
 
   recent_bear.forEach(fvg => {
     if (!layers.fvgBear) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,150,0,0.12)', '#ff9600');
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,140,0,0.35)', '#ff8c00', 2);
     fvgBearSeries.push(s);
   });
 }
@@ -629,13 +640,13 @@ function drawOB(bull, bear, data) {
 
   recent_bull.forEach(ob => {
     if (!layers.obBull) return;
-    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(0,229,160,0.15)', '#00e5a0');
+    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(0,220,120,0.35)', '#00dc78', 2);
     obBullSeries.push(s);
   });
 
   recent_bear.forEach(ob => {
     if (!layers.obBear) return;
-    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(255,68,102,0.15)', '#ff4466');
+    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(255,50,80,0.35)', '#ff3250', 2);
     obBearSeries.push(s);
   });
 }
@@ -646,8 +657,8 @@ function drawLiquidity(liquidity) {
   recent.forEach(liq => {
     const line = candleSeries.createPriceLine({
       price: liq.price,
-      color: 'rgba(180,130,255,0.6)',
-      lineWidth: 1,
+      color: 'rgba(200,150,255,0.9)',
+      lineWidth: 2,
       lineStyle: LightweightCharts.LineStyle.Dashed,
       axisLabelVisible: false,
       title: liq.type === 'high' ? '↑ LH' : '↓ LL',
@@ -657,7 +668,7 @@ function drawLiquidity(liquidity) {
 }
 
 // Box via LineSeries trick
-function addBoxSeries(t1, t2, low, high, fillColor, lineColor) {
+function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=1) {
   // Use area series to simulate box
   const s = chart.addAreaSeries({
     topColor: fillColor,
@@ -674,7 +685,7 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor) {
   // Draw top boundary
   const topLine = chart.addLineSeries({
     color: lineColor,
-    lineWidth: 1,
+    lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false,
     priceLineVisible: false,
@@ -684,8 +695,8 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor) {
 
   const botLine = chart.addLineSeries({
     color: lineColor,
-    lineWidth: 1,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false,
     priceLineVisible: false,
     crosshairMarkerVisible: false,
