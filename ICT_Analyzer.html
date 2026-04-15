@@ -617,8 +617,8 @@ function detectBias(data) {
 // ─── DRAWING ──────────────────────────────────────────────
 function drawFVG(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-2);
-  const recent_bear = bear.slice(-2);
+  const recent_bull = bull.slice(-1);
+  const recent_bear = bear.slice(-1);
 
   recent_bull.forEach(fvg => {
     if (!layers.fvgBull) return;
@@ -635,8 +635,8 @@ function drawFVG(bull, bear, data) {
 
 function drawOB(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-2);
-  const recent_bear = bear.slice(-2);
+  const recent_bull = bull.slice(-1);
+  const recent_bear = bear.slice(-1);
 
   recent_bull.forEach(ob => {
     if (!layers.obBull) return;
@@ -667,9 +667,8 @@ function drawLiquidity(liquidity) {
   });
 }
 
-// Box via canvas overlay
-function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=1) {
-  // Top boundary line
+// Simple 2-line box
+function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
   const topLine = chart.addLineSeries({
     color: lineColor,
     lineWidth: lw,
@@ -680,41 +679,24 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=1) {
   });
   topLine.setData([{ time: t1, value: high }, { time: t2, value: high }]);
 
-  // Bottom boundary line
   const botLine = chart.addLineSeries({
     color: lineColor,
     lineWidth: lw,
-    lineStyle: LightweightCharts.LineStyle.Solid,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: false,
     priceLineVisible: false,
     crosshairMarkerVisible: false,
   });
   botLine.setData([{ time: t1, value: low }, { time: t2, value: low }]);
 
-  // Fill area using AreaSeries between high and low
-  const fillSeries = chart.addAreaSeries({
-    topColor: fillColor,
-    bottomColor: fillColor,
-    lineColor: 'transparent',
-    lineWidth: 0,
-    lastValueVisible: false,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-    baseValue: { type: 'price', price: low },
-  });
-  fillSeries.setData([
-    { time: t1, value: high },
-    { time: t2, value: high },
-  ]);
-
-  return { top: topLine, bot: botLine, fill: fillSeries };
+  return { top: topLine, bot: botLine };
 }
 
 function clearOverlays() {
   [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-    if (s && s.fill) { try { chart.removeSeries(s.fill); } catch(e){} }
+
   });
   fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = [];
 
