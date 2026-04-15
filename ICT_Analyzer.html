@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICT Analyzer</title>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #00d4ff;
+    --bull: #00e5a0;
+    --bear: #ff4466;
+    --ob-bull: rgba(0,229,160,0.15);
+    --ob-bear: rgba(255,68,102,0.15);
+    --fvg-bull: rgba(0,212,255,0.12);
+    --fvg-bear: rgba(255,150,0,0.12);
+    --text: #c8c8e0;
+    --muted: #555570;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  .symbol-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .sym-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.15s;
+  }
+  .sym-btn:hover, .sym-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+  }
+
+  .tf-btns {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .tf-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.15s;
+  }
+  .tf-btn:hover, .tf-btn.active {
+    border-color: var(--bull);
+    color: var(--bull);
+    background: rgba(0,229,160,0.08);
+  }
+
+  /* LEGEND */
+  .legend-bar {
+    display: flex;
+    gap: 16px;
+    padding: 6px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 0.2s;
+  }
+  .leg-item.off { opacity: 0.3; }
+  .leg-box {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .leg-label { color: var(--muted); font-size: 11px; }
+
+  /* CHART */
+  #chart-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #chart { width: 100%; height: 100%; }
+
+  /* BOTTOM PANEL */
+  .bottom-panel {
+    display: flex;
+    gap: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 56px;
+  }
+
+  .stat-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border);
+    padding: 6px;
+  }
+  .stat-box:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+  .stat-val {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    margin-top: 2px;
+  }
+  .bull { color: var(--bull); }
+  .bear { color: var(--bear); }
+  .neutral { color: var(--accent); }
+
+  /* PRICE OVERLAY */
+  .price-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: 'Space Mono', monospace;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .price-main {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,212,255,0.3);
+  }
+  .price-change {
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  /* STATUS */
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--bull);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .signal-toast {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    z-index: 20;
+    max-width: 200px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .signal-toast.show { opacity: 1; }
+
+  /* SIGNAL BADGE */
+  .signal-badge {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    animation: badgePop 0.4s ease;
+  }
+  .signal-badge.show { display: flex; }
+  .signal-badge.buy {
+    background: rgba(0,229,160,0.15);
+    border: 1px solid var(--bull);
+    color: var(--bull);
+  }
+  .signal-badge.sell {
+    background: rgba(255,68,102,0.15);
+    border: 1px solid var(--bear);
+    color: var(--bear);
+  }
+  .signal-badge.wait {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  @keyframes badgePop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">◈ ICT</div>
+  <div class="symbol-btns">
+    <button class="sym-btn active" onclick="changeSymbol('BTCUSDT',this)">BTC</button>
+    <button class="sym-btn" onclick="changeSymbol('ETHUSDT',this)">ETH</button>
+    <button class="sym-btn" onclick="changeSymbol('SOLUSDT',this)">SOL</button>
+    <button class="sym-btn" onclick="changeSymbol('XRPUSDT',this)">XRP</button>
+    <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
+  </div>
+  <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
+  <div class="tf-btns">
+    <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
+    <button class="tf-btn" onclick="changeTF('5m',this)">5m</button>
+    <button class="tf-btn" onclick="changeTF('15m',this)">15m</button>
+    <button class="tf-btn active" onclick="changeTF('1h',this)">1H</button>
+    <button class="tf-btn" onclick="changeTF('4h',this)">4H</button>
+    <button class="tf-btn" onclick="changeTF('1d',this)">1D</button>
+  </div>
+</div>
+
+<div class="legend-bar">
+  <div class="leg-item" id="leg-fvg-bull" onclick="toggleLayer('fvgBull')">
+    <div class="leg-box" style="background:rgba(0,212,255,0.4);border:1px solid #00d4ff"></div>
+    <span class="leg-label">강세 FVG</span>
+  </div>
+  <div class="leg-item" id="leg-fvg-bear" onclick="toggleLayer('fvgBear')">
+    <div class="leg-box" style="background:rgba(255,150,0,0.4);border:1px solid #ff9600"></div>
+    <span class="leg-label">약세 FVG</span>
+  </div>
+  <div class="leg-item" id="leg-ob-bull" onclick="toggleLayer('obBull')">
+    <div class="leg-box" style="background:rgba(0,229,160,0.4);border:1px solid #00e5a0"></div>
+    <span class="leg-label">강세 OB</span>
+  </div>
+  <div class="leg-item" id="leg-ob-bear" onclick="toggleLayer('obBear')">
+    <div class="leg-box" style="background:rgba(255,68,102,0.4);border:1px solid #ff4466"></div>
+    <span class="leg-label">약세 OB</span>
+  </div>
+  <div class="leg-item" id="leg-liq" onclick="toggleLayer('liq')">
+    <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
+    <span class="leg-label">유동성</span>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
+    <span class="status-dot"></span>LIVE
+  </div>
+</div>
+
+<div id="chart-container">
+  <div class="price-overlay">
+    <div class="price-main" id="priceMain">--</div>
+    <div class="price-change" id="priceChange">--</div>
+  </div>
+  <div id="chart"></div>
+  <div class="signal-toast" id="signalToast"></div>
+</div>
+
+<div class="bottom-panel">
+  <div class="stat-box">
+    <div class="stat-label">FVG</div>
+    <div class="stat-val neutral" id="statFVG">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">OB</div>
+    <div class="stat-val neutral" id="statOB">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">유동성</div>
+    <div class="stat-val neutral" id="statLiq">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">구조</div>
+    <div class="stat-val neutral" id="statMSS">-</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">바이어스</div>
+    <div class="stat-val neutral" id="statBias">-</div>
+  </div>
+</div>
+
+<script>
+let chart, candleSeries;
+let currentSymbol = 'BTCUSDT';
+let currentTF = '1h';
+let ws = null;
+let candles = [];
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true };
+
+// ICT overlay series storage
+let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
+
+// ─── CHART INIT ───────────────────────────────────────────
+function initChart() {
+  const container = document.getElementById('chart');
+  chart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { color: '#0a0a0f' },
+      textColor: '#555570',
+    },
+    grid: {
+      vertLines: { color: '#1a1a28' },
+      horzLines: { color: '#1a1a28' },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color: '#333355', width: 1, style: 3 },
+      horzLine: { color: '#333355', width: 1, style: 3 },
+    },
+    rightPriceScale: { borderColor: '#1e1e2e', scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false },
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00e5a0',
+    downColor: '#ff4466',
+    borderUpColor: '#00e5a0',
+    borderDownColor: '#ff4466',
+    wickUpColor: '#00e5a0',
+    wickDownColor: '#ff4466',
+  });
+
+  window.addEventListener('resize', () => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  });
+}
+
+// ─── DATA FETCH ───────────────────────────────────────────
+async function fetchCandles(symbol, tf) {
+  const limit = 200;
+  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`;
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(binanceUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`,
+    `https://proxy.cors.sh/${binanceUrl}`,
+  ];
+  let data = null;
+  // 직접 연결 시도
+  try {
+    const res = await fetch(binanceUrl);
+    if (res.ok) data = await res.json();
+  } catch(e) {}
+  // 프록시 순차 시도
+  if (!data) {
+    for (const proxy of proxies) {
+      try {
+        const res = await fetch(proxy);
+        if (res.ok) { data = await res.json(); break; }
+      } catch(e) {}
+    }
+  }
+  if (!data) { alert('데이터 로드 실패\nBrave 설정 > 보안 > CORS 허용 필요'); return []; }
+  return data.map(k => ({
+    time: k[0] / 1000,
+    open: parseFloat(k[1]),
+    high: parseFloat(k[2]),
+    low: parseFloat(k[3]),
+    close: parseFloat(k[4]),
+  }));
+}
+
+async function loadChart() {
+  clearOverlays();
+  candles = await fetchCandles(currentSymbol, currentTF);
+  candleSeries.setData(candles);
+  updatePrice(candles[candles.length - 1]);
+  analyzeICT(candles);
+  connectWS();
+}
+
+// ─── WEBSOCKET ────────────────────────────────────────────
+function connectWS() {
+  if (ws) ws.close();
+  const sym = currentSymbol.toLowerCase();
+  ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data).k;
+    const candle = {
+      time: d.t / 1000,
+      open: parseFloat(d.o),
+      high: parseFloat(d.h),
+      low: parseFloat(d.l),
+      close: parseFloat(d.c),
+    };
+    candleSeries.update(candle);
+    if (d.x) { // closed candle
+      candles.push(candle);
+      if (candles.length > 300) candles.shift();
+      analyzeICT(candles);
+    }
+    updatePrice(candle);
+  };
+}
+
+// ─── PRICE DISPLAY ────────────────────────────────────────
+function updatePrice(candle) {
+  const el = document.getElementById('priceMain');
+  const chEl = document.getElementById('priceChange');
+  const price = candle.close;
+  el.textContent = price > 1000
+    ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : price.toFixed(4);
+
+  if (candles.length > 1) {
+    const prev = candles[candles.length - 2]?.close || candles[0].open;
+    const pct = ((price - prev) / prev * 100).toFixed(2);
+    chEl.textContent = (pct >= 0 ? '+' : '') + pct + '%';
+    chEl.style.color = pct >= 0 ? '#00e5a0' : '#ff4466';
+  }
+}
+
+// ─── ICT ANALYSIS ─────────────────────────────────────────
+function analyzeICT(data) {
+  clearOverlays();
+  if (data.length < 10) return;
+
+  const fvgBull = [], fvgBear = [];
+  const obBull = [], obBear = [];
+  const liquidity = [];
+
+  // FVG detection (last 100 candles)
+  const start = Math.max(1, data.length - 100);
+  for (let i = start; i < data.length - 1; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+    const next = data[i + 1];
+
+    // Bullish FVG: prev.high < next.low (gap up)
+    if (prev.high < next.low) {
+      fvgBull.push({ time: curr.time, low: prev.high, high: next.low });
+    }
+    // Bearish FVG: prev.low > next.high (gap down)
+    if (prev.low > next.high) {
+      fvgBear.push({ time: curr.time, low: next.high, high: prev.low });
+    }
+  }
+
+  // Order Block detection
+  for (let i = start; i < data.length - 3; i++) {
+    const curr = data[i];
+    const next = data[i + 1];
+    const next2 = data[i + 2];
+
+    // Bullish OB: bearish candle followed by strong bullish move
+    if (curr.close < curr.open) { // bearish candle
+      if (next.close > curr.high || next2.close > curr.high) {
+        obBull.push({ time: curr.time, low: curr.low, high: curr.high });
+      }
+    }
+    // Bearish OB: bullish candle followed by strong bearish move
+    if (curr.close > curr.open) { // bullish candle
+      if (next.close < curr.low || next2.close < curr.low) {
+        obBear.push({ time: curr.time, low: curr.low, high: curr.high });
+      }
+    }
+  }
+
+  // Liquidity: swing highs/lows
+  for (let i = 3; i < data.length - 3; i++) {
+    const c = data[i];
+    const isSwingHigh = data[i-1].high < c.high && data[i-2].high < c.high &&
+                        data[i+1].high < c.high && data[i+2].high < c.high;
+    const isSwingLow  = data[i-1].low > c.low && data[i-2].low > c.low &&
+                        data[i+1].low > c.low && data[i+2].low > c.low;
+    if (isSwingHigh) liquidity.push({ time: c.time, price: c.high, type: 'high' });
+    if (isSwingLow)  liquidity.push({ time: c.time, price: c.low, type: 'low' });
+  }
+
+  // MSS detection
+  const mss = detectMSS(data);
+
+  // Bias
+  const bias = detectBias(data);
+
+  // Draw overlays
+  drawFVG(fvgBull, fvgBear, data);
+  drawOB(obBull, obBear, data);
+  drawLiquidity(liquidity);
+
+  // Stats
+  document.getElementById('statFVG').textContent = fvgBull.length + fvgBear.length;
+  document.getElementById('statOB').textContent = obBull.length + obBear.length;
+  document.getElementById('statLiq').textContent = liquidity.length;
+  const mssEl = document.getElementById('statMSS');
+  mssEl.textContent = mss;
+  mssEl.className = 'stat-val ' + (mss === '상승' ? 'bull' : mss === '하락' ? 'bear' : 'neutral');
+  const biasEl = document.getElementById('statBias');
+  biasEl.textContent = bias;
+  biasEl.className = 'stat-val ' + (bias === '매수' ? 'bull' : bias === '매도' ? 'bear' : 'neutral');
+
+  // Signal detection
+  detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias);
+}
+
+function detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias) {
+  const last = data[data.length - 1];
+  const price = last.close;
+  const badge = document.getElementById('signalBadge');
+
+  let signal = 'wait';
+  let label = '⏳ 대기';
+
+  if (bias === '매수') {
+    const inFVG = fvgBull.slice(-5).some(z => price >= z.low && price <= z.high);
+    const inOB  = obBull.slice(-4).some(z => price >= z.low && price <= z.high);
+    if (inFVG || inOB) { signal = 'buy'; label = '🟢 매수'; }
+  } else if (bias === '매도') {
+    const inFVG = fvgBear.slice(-5).some(z => price >= z.low && price <= z.high);
+    const inOB  = obBear.slice(-4).some(z => price >= z.low && price <= z.high);
+    if (inFVG || inOB) { signal = 'sell'; label = '🔴 매도'; }
+  }
+
+  badge.className = `signal-badge show ${signal}`;
+  badge.textContent = label;
+}
+
+// MSS: Market Structure Shift
+function detectMSS(data) {
+  if (data.length < 20) return '-';
+  const recent = data.slice(-20);
+  const highs = recent.map(c => c.high);
+  const lows  = recent.map(c => c.low);
+  const lastClose = data[data.length - 1].close;
+  const prevHigh = Math.max(...highs.slice(0, -3));
+  const prevLow  = Math.min(...lows.slice(0, -3));
+
+  if (lastClose > prevHigh) return '상승';
+  if (lastClose < prevLow) return '하락';
+  return '중립';
+}
+
+// Bias based on recent structure
+function detectBias(data) {
+  if (data.length < 30) return '-';
+  const slice = data.slice(-30);
+  let upMoves = 0, downMoves = 0;
+  for (let i = 1; i < slice.length; i++) {
+    if (slice[i].close > slice[i-1].close) upMoves++;
+    else downMoves++;
+  }
+  if (upMoves > downMoves * 1.3) return '매수';
+  if (downMoves > upMoves * 1.3) return '매도';
+  return '중립';
+}
+
+// ─── DRAWING ──────────────────────────────────────────────
+function drawFVG(bull, bear, data) {
+  const lastTime = data[data.length - 1].time;
+  const recent_bull = bull.slice(-5);
+  const recent_bear = bear.slice(-5);
+
+  recent_bull.forEach(fvg => {
+    if (!layers.fvgBull) return;
+    const s = chart.addRectanglePrimitive ? null : addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,212,255,0.12)', '#00d4ff');
+    fvgBullSeries.push(s);
+  });
+
+  recent_bear.forEach(fvg => {
+    if (!layers.fvgBear) return;
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,150,0,0.12)', '#ff9600');
+    fvgBearSeries.push(s);
+  });
+}
+
+function drawOB(bull, bear, data) {
+  const lastTime = data[data.length - 1].time;
+  const recent_bull = bull.slice(-4);
+  const recent_bear = bear.slice(-4);
+
+  recent_bull.forEach(ob => {
+    if (!layers.obBull) return;
+    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(0,229,160,0.15)', '#00e5a0');
+    obBullSeries.push(s);
+  });
+
+  recent_bear.forEach(ob => {
+    if (!layers.obBear) return;
+    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(255,68,102,0.15)', '#ff4466');
+    obBearSeries.push(s);
+  });
+}
+
+function drawLiquidity(liquidity) {
+  if (!layers.liq) return;
+  const recent = liquidity.slice(-10);
+  recent.forEach(liq => {
+    const line = candleSeries.createPriceLine({
+      price: liq.price,
+      color: 'rgba(180,130,255,0.6)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: false,
+      title: liq.type === 'high' ? '↑ LH' : '↓ LL',
+    });
+    liqSeries.push(line);
+  });
+}
+
+// Box via LineSeries trick
+function addBoxSeries(t1, t2, low, high, fillColor, lineColor) {
+  // Use area series to simulate box
+  const s = chart.addAreaSeries({
+    topColor: fillColor,
+    bottomColor: fillColor,
+    lineColor: lineColor,
+    lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    priceScaleId: 'right',
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+  });
+
+  // Draw top boundary
+  const topLine = chart.addLineSeries({
+    color: lineColor,
+    lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+  });
+  topLine.setData([{ time: t1, value: high }, { time: t2, value: high }]);
+
+  const botLine = chart.addLineSeries({
+    color: lineColor,
+    lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+  });
+  botLine.setData([{ time: t1, value: low }, { time: t2, value: low }]);
+
+  s.setData([
+    { time: t1, value: high },
+    { time: t2, value: high },
+  ]);
+
+  chart.removeSeries(s);
+  return { top: topLine, bot: botLine };
+}
+
+function clearOverlays() {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries].forEach(s => {
+    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
+    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+  });
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = [];
+
+  liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
+  liqSeries = [];
+}
+
+// ─── CONTROLS ─────────────────────────────────────────────
+function changeSymbol(sym, btn) {
+  document.querySelectorAll('.sym-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSymbol = sym;
+  loadChart();
+}
+
+function changeTF(tf, btn) {
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentTF = tf;
+  loadChart();
+}
+
+function toggleLayer(name) {
+  layers[name] = !layers[name];
+  const legMap = {
+    fvgBull: 'leg-fvg-bull',
+    fvgBear: 'leg-fvg-bear',
+    obBull: 'leg-ob-bull',
+    obBear: 'leg-ob-bear',
+    liq: 'leg-liq',
+  };
+  const el = document.getElementById(legMap[name]);
+  if (el) el.classList.toggle('off', !layers[name]);
+  analyzeICT(candles);
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+initChart();
+loadChart();
+</script>
+</body>
+</html>
