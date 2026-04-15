@@ -479,7 +479,7 @@ function analyzeICT(data) {
   const liquidity = [];
 
   // FVG detection (last 100 candles)
-  const start = Math.max(1, data.length - 100);
+  const start = Math.max(1, data.length - 50);
   for (let i = start; i < data.length - 1; i++) {
     const prev = data[i - 1];
     const curr = data[i];
@@ -606,8 +606,8 @@ function detectBias(data) {
 // ─── DRAWING ──────────────────────────────────────────────
 function drawFVG(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-5);
-  const recent_bear = bear.slice(-5);
+  const recent_bull = bull.slice(-2);
+  const recent_bear = bear.slice(-2);
 
   recent_bull.forEach(fvg => {
     if (!layers.fvgBull) return;
@@ -624,8 +624,8 @@ function drawFVG(bull, bear, data) {
 
 function drawOB(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-4);
-  const recent_bear = bear.slice(-4);
+  const recent_bull = bull.slice(-2);
+  const recent_bear = bear.slice(-2);
 
   recent_bull.forEach(ob => {
     if (!layers.obBull) return;
@@ -642,7 +642,7 @@ function drawOB(bull, bear, data) {
 
 function drawLiquidity(liquidity) {
   if (!layers.liq) return;
-  const recent = liquidity.slice(-10);
+  const recent = liquidity.slice(-6);
   recent.forEach(liq => {
     const line = candleSeries.createPriceLine({
       price: liq.price,
