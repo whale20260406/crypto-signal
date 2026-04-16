@@ -617,8 +617,8 @@ function detectBias(data) {
 // ─── DRAWING ──────────────────────────────────────────────
 function drawFVG(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-1);
-  const recent_bear = bear.slice(-1);
+  const recent_bull = bull.slice(-5);
+  const recent_bear = bear.slice(-5);
 
   recent_bull.forEach(fvg => {
     if (!layers.fvgBull) return;
@@ -635,8 +635,8 @@ function drawFVG(bull, bear, data) {
 
 function drawOB(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-1);
-  const recent_bear = bear.slice(-1);
+  const recent_bull = bull.slice(-5);
+  const recent_bear = bear.slice(-5);
 
   recent_bull.forEach(ob => {
     if (!layers.obBull) return;
@@ -672,7 +672,7 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
   const topLine = chart.addLineSeries({
     color: lineColor,
     lineWidth: lw,
-    lineStyle: LightweightCharts.LineStyle.Solid,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: false,
     priceLineVisible: false,
     crosshairMarkerVisible: false,
