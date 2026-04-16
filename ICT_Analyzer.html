@@ -619,19 +619,21 @@ function drawFVG(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
   const price = data[data.length - 1].close;
 
-  // 현재가 바로 위 강세 FVG 1개
-  const aboveBull = bull.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
-  if (aboveBull && layers.fvgBull) {
-    const s = addBoxSeries(aboveBull.time, lastTime, aboveBull.low, aboveBull.high, 'rgba(0,180,255,0.25)', '#00b4ff', 2);
+  // 현재가 바로 위 강세 FVG 2개
+  const aboveBulls = bull.filter(z => z.low > price).sort((a,b) => a.low - b.low).slice(0,2);
+  aboveBulls.forEach(fvg => {
+    if (!layers.fvgBull) return;
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,180,255,0.25)', '#00b4ff', 2);
     fvgBullSeries.push(s);
-  }
+  });
 
-  // 현재가 바로 아래 약세 FVG 1개
-  const belowBear = bear.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
-  if (belowBear && layers.fvgBear) {
-    const s = addBoxSeries(belowBear.time, lastTime, belowBear.low, belowBear.high, 'rgba(255,140,0,0.25)', '#ff8c00', 2);
+  // 현재가 바로 아래 약세 FVG 2개
+  const belowBears = bear.filter(z => z.high < price).sort((a,b) => b.high - a.high).slice(0,2);
+  belowBears.forEach(fvg => {
+    if (!layers.fvgBear) return;
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,140,0,0.25)', '#ff8c00', 2);
     fvgBearSeries.push(s);
-  }
+  });
 }
 
 function drawOB(bull, bear, data) {
