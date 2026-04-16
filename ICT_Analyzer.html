@@ -659,8 +659,8 @@ function drawLiquidity(liquidity) {
   recent.forEach(liq => {
     const line = candleSeries.createPriceLine({
       price: liq.price,
-      color: 'rgba(200,150,255,0.9)',
-      lineWidth: 2,
+      color: 'rgba(180,130,255,0.4)',
+      lineWidth: 1,
       lineStyle: LightweightCharts.LineStyle.Dashed,
       axisLabelVisible: false,
       title: liq.type === 'high' ? '↑ LH' : '↓ LL',
