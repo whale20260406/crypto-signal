@@ -617,38 +617,40 @@ function detectBias(data) {
 // ─── DRAWING ──────────────────────────────────────────────
 function drawFVG(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-5);
-  const recent_bear = bear.slice(-5);
+  const price = data[data.length - 1].close;
 
-  recent_bull.forEach(fvg => {
-    if (!layers.fvgBull) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,180,255,0.25)', '#00b4ff', 2);
+  // 현재가 바로 위 강세 FVG 1개
+  const aboveBull = bull.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
+  if (aboveBull && layers.fvgBull) {
+    const s = addBoxSeries(aboveBull.time, lastTime, aboveBull.low, aboveBull.high, 'rgba(0,180,255,0.25)', '#00b4ff', 2);
     fvgBullSeries.push(s);
-  });
+  }
 
-  recent_bear.forEach(fvg => {
-    if (!layers.fvgBear) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,140,0,0.25)', '#ff8c00', 2);
+  // 현재가 바로 아래 약세 FVG 1개
+  const belowBear = bear.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
+  if (belowBear && layers.fvgBear) {
+    const s = addBoxSeries(belowBear.time, lastTime, belowBear.low, belowBear.high, 'rgba(255,140,0,0.25)', '#ff8c00', 2);
     fvgBearSeries.push(s);
-  });
+  }
 }
 
 function drawOB(bull, bear, data) {
   const lastTime = data[data.length - 1].time;
-  const recent_bull = bull.slice(-5);
-  const recent_bear = bear.slice(-5);
+  const price = data[data.length - 1].close;
 
-  recent_bull.forEach(ob => {
-    if (!layers.obBull) return;
-    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(0,220,120,0.25)', '#00dc78', 2);
+  // 현재가 바로 아래 강세 OB 1개
+  const belowBull = bull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
+  if (belowBull && layers.obBull) {
+    const s = addBoxSeries(belowBull.time, lastTime, belowBull.low, belowBull.high, 'rgba(0,220,120,0.25)', '#00dc78', 2);
     obBullSeries.push(s);
-  });
+  }
 
-  recent_bear.forEach(ob => {
-    if (!layers.obBear) return;
-    const s = addBoxSeries(ob.time, lastTime, ob.low, ob.high, 'rgba(255,50,80,0.25)', '#ff3250', 2);
+  // 현재가 바로 위 약세 OB 1개
+  const aboveBear = bear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
+  if (aboveBear && layers.obBear) {
+    const s = addBoxSeries(aboveBear.time, lastTime, aboveBear.low, aboveBear.high, 'rgba(255,50,80,0.25)', '#ff3250', 2);
     obBearSeries.push(s);
-  });
+  }
 }
 
 function drawLiquidity(liquidity) {
