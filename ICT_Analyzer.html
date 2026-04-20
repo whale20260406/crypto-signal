@@ -268,6 +268,53 @@
     0% { transform: scale(0.8); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
   }
+
+  /* KILLZONE BADGE */
+  .killzone-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    animation: badgePop 0.4s ease;
+  }
+  .killzone-badge.show { display: flex; }
+  .killzone-badge.asia {
+    background: rgba(180,130,255,0.15);
+    border: 1px solid #b482ff;
+    color: #b482ff;
+  }
+  .killzone-badge.london {
+    background: rgba(0,212,255,0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .killzone-badge.ny {
+    background: rgba(255,200,0,0.15);
+    border: 1px solid #ffc800;
+    color: #ffc800;
+  }
+
+  /* AMD BADGE */
+  .amd-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    animation: badgePop 0.4s ease;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.4);
+    color: var(--bull);
+  }
+  .amd-badge.show { display: flex; }
 </style>
 </head>
 <body>
@@ -282,6 +329,8 @@
     <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
   </div>
   <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
+  <div id="killzoneBadge" class="killzone-badge"></div>
+  <div id="amdBadge" class="amd-badge"></div>
   <div class="tf-btns">
     <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
     <button class="tf-btn" onclick="changeTF('5m',this)">5m</button>
@@ -312,6 +361,10 @@
   <div class="leg-item" id="leg-liq" onclick="toggleLayer('liq')">
     <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
     <span class="leg-label">유동성</span>
+  </div>
+  <div class="leg-item" id="leg-kz" onclick="toggleLayer('kz')">
+    <div class="leg-box" style="background:rgba(255,200,0,0.3);border:1px solid #ffc800"></div>
+    <span class="leg-label">킬존</span>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
@@ -345,6 +398,10 @@
     <div class="stat-val neutral" id="statMSS">-</div>
   </div>
   <div class="stat-box">
+    <div class="stat-label">AMD</div>
+    <div class="stat-val neutral" id="statAMD">-</div>
+  </div>
+  <div class="stat-box">
     <div class="stat-label">바이어스</div>
     <div class="stat-val neutral" id="statBias">-</div>
   </div>
@@ -356,10 +413,11 @@ let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
-let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true };
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true };
 
 // ICT overlay series storage
 let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
+let kzSeries = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
@@ -543,6 +601,12 @@ function analyzeICT(data) {
   // Bias
   const bias = detectBias(data);
 
+  // AMD detection
+  const amd = detectAMD(data);
+
+  // Killzone
+  drawKillzones(data);
+
   // Draw overlays
   drawFVG(fvgBull, fvgBear, data);
   drawOB(obBull, obBear, data);
@@ -555,9 +619,22 @@ function analyzeICT(data) {
   const mssEl = document.getElementById('statMSS');
   mssEl.textContent = mss;
   mssEl.className = 'stat-val ' + (mss === '상승' ? 'bull' : mss === '하락' ? 'bear' : 'neutral');
+  const amdEl = document.getElementById('statAMD');
+  amdEl.textContent = amd.phase;
+  amdEl.className = 'stat-val ' + (amd.phase === '배분' ? 'bull' : amd.phase === '조작' ? 'bear' : 'neutral');
   const biasEl = document.getElementById('statBias');
   biasEl.textContent = bias;
   biasEl.className = 'stat-val ' + (bias === '매수' ? 'bull' : bias === '매도' ? 'bear' : 'neutral');
+
+  // AMD badge
+  const amdBadge = document.getElementById('amdBadge');
+  const amdIcons = { '축적': '🔵 축적', '조작': '🔴 조작', '배분': '🟢 배분' };
+  if (amdIcons[amd.phase]) {
+    amdBadge.textContent = amdIcons[amd.phase];
+    amdBadge.className = 'amd-badge show';
+  } else {
+    amdBadge.className = 'amd-badge';
+  }
 
   // Signal detection
   detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias);
@@ -583,6 +660,116 @@ function detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias) {
 
   badge.className = `signal-badge show ${signal}`;
   badge.textContent = label;
+}
+
+// ─── KILLZONE ─────────────────────────────────────────────
+function drawKillzones(data) {
+  // 기존 킬존 제거
+  kzSeries.forEach(s => {
+    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
+    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+  });
+  kzSeries = [];
+  if (!layers.kz) return;
+
+  // 킬존 정의 (KST = UTC+9)
+  // 아시아: 01:00~03:00 KST (= 00:00~02:00 UTC+9 → 실제 02:00~04:00 KST)
+  // 런던:   16:00~18:00 KST
+  // 뉴욕:   22:00~00:00 KST
+  const kzDefs = [
+    { label: '🌏 아시아', startH: 2, endH: 4,  color: 'rgba(180,130,255,0.08)', lineColor: '#b482ff' },
+    { label: '🇬🇧 런던',  startH: 16, endH: 18, color: 'rgba(0,212,255,0.08)',  lineColor: '#00d4ff' },
+    { label: '🇺🇸 뉴욕',  startH: 22, endH: 24, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
+  ];
+
+  // 현재 킬존 뱃지 업데이트
+  const nowUTC = new Date();
+  const kstHour = (nowUTC.getUTCHours() + 9) % 24;
+  const kzBadge = document.getElementById('killzoneBadge');
+  let currentKZ = null;
+  kzDefs.forEach(kz => {
+    if (kstHour >= kz.startH && kstHour < kz.endH) currentKZ = kz;
+  });
+  // 뉴욕 자정 넘어가는 경우
+  if (kstHour === 0) currentKZ = kzDefs[2];
+
+  if (currentKZ) {
+    kzBadge.textContent = currentKZ.label + ' 킬존';
+    kzBadge.className = 'killzone-badge show ' +
+      (currentKZ.label.includes('아시아') ? 'asia' : currentKZ.label.includes('런던') ? 'london' : 'ny');
+  } else {
+    kzBadge.className = 'killzone-badge';
+  }
+
+  // 차트에 최근 7일 킬존 음영 표시
+  if (data.length < 2) return;
+  const tf = currentTF;
+  // 분봉/시봉에서만 킬존 의미있음
+  if (!['1m','5m','15m','1h'].includes(tf)) return;
+
+  const lastTime = data[data.length - 1].time;
+  const firstTime = data[0].time;
+
+  // 하루를 초 단위로
+  const daySeconds = 86400;
+  const kstOffset = 9 * 3600;
+
+  // 데이터 범위 내 킬존 박스 그리기
+  let dayStart = Math.floor((firstTime + kstOffset) / daySeconds) * daySeconds - kstOffset;
+  while (dayStart < lastTime) {
+    kzDefs.forEach(kz => {
+      const kzStart = dayStart + kz.startH * 3600;
+      const kzEnd   = dayStart + kz.endH * 3600;
+      if (kzEnd < firstTime || kzStart > lastTime) return;
+
+      // 가격 범위는 차트 전체 (임시 극값)
+      const prices = data.filter(c => c.time >= kzStart && c.time <= kzEnd);
+      if (prices.length === 0) return;
+      const hi = Math.max(...prices.map(c => c.high));
+      const lo = Math.min(...prices.map(c => c.low));
+      if (hi === lo) return;
+
+      const s = addBoxSeries(kzStart, Math.min(kzEnd, lastTime), lo * 0.999, hi * 1.001, kz.color, kz.lineColor, 1);
+      kzSeries.push(s);
+    });
+    dayStart += daySeconds;
+  }
+}
+
+// ─── AMD DETECTION ────────────────────────────────────────
+function detectAMD(data) {
+  // 하루(24봉 기준 1H, 288봉 기준 5m) 내 AMD 판단
+  if (data.length < 10) return { phase: '-' };
+
+  // 최근 봉 기준으로 하루 AMD 패턴 분석
+  // 아시아장(축적) → 런던(조작) → 뉴욕(배분) 흐름
+  const now = data[data.length - 1].time;
+  const kstHour = ((new Date(now * 1000).getUTCHours()) + 9) % 24;
+
+  // 아시아: 02~10, 런던: 16~18, 뉴욕: 22~02
+  let phase = '-';
+  if (kstHour >= 2 && kstHour < 10) {
+    phase = '축적'; // Accumulation
+  } else if (kstHour >= 10 && kstHour < 16) {
+    phase = '-';
+  } else if (kstHour >= 16 && kstHour < 20) {
+    // 런던 → 가격 조작 (스파이크/유동성 사냥)
+    phase = '조작';
+  } else if (kstHour >= 20 || kstHour < 2) {
+    // 뉴욕 → 진짜 방향 (배분)
+    phase = '배분';
+  }
+
+  // 추가로 최근 변동성으로 보정
+  const recent10 = data.slice(-10);
+  const hi = Math.max(...recent10.map(c => c.high));
+  const lo = Math.min(...recent10.map(c => c.low));
+  const range = (hi - lo) / lo * 100;
+
+  // 변동성 낮으면 축적 가능성
+  if (range < 0.3 && phase === '-') phase = '축적';
+
+  return { phase, range: range.toFixed(2) };
 }
 
 // MSS: Market Structure Shift
@@ -697,12 +884,11 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
 }
 
 function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries].forEach(s => {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-
   });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = [];
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
@@ -731,6 +917,7 @@ function toggleLayer(name) {
     obBull: 'leg-ob-bull',
     obBear: 'leg-ob-bear',
     liq: 'leg-liq',
+    kz: 'leg-kz',
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
