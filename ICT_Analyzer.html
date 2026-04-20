@@ -283,11 +283,6 @@
     animation: badgePop 0.4s ease;
   }
   .killzone-badge.show { display: flex; }
-  .killzone-badge.asia {
-    background: rgba(0,229,160,0.15);
-    border: 1px solid #00e5a0;
-    color: #00e5a0;
-  }
   .killzone-badge.london {
     background: rgba(255,120,0,0.15);
     border: 1px solid #ff7800;
@@ -677,7 +672,6 @@ function drawKillzones(data) {
   // 런던:   16:00~18:00 KST
   // 뉴욕:   22:00~00:00 KST
   const kzDefs = [
-    { label: '🌏 아시아', startH: 2, endH: 4,  color: 'rgba(0,229,160,0.08)', lineColor: '#00e5a0' },
     { label: '🇬🇧 런던',  startH: 16, endH: 18, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
     { label: '🇺🇸 뉴욕',  startH: 22, endH: 24, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
   ];
