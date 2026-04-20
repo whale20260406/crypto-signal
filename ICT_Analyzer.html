@@ -361,6 +361,10 @@
     <div class="leg-box" style="background:linear-gradient(90deg,rgba(0,229,160,0.4) 33%,rgba(255,120,0,0.4) 33% 66%,rgba(255,200,0,0.4) 66%);border:1px solid #888"></div>
     <span class="leg-label">킬존</span>
   </div>
+  <div class="leg-item" id="leg-htf" onclick="toggleLayer('htf')">
+    <div class="leg-box" style="background:rgba(255,255,255,0.1);border:2px dashed #ffffff66"></div>
+    <span class="leg-label">4H구간</span>
+  </div>
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
   </div>
@@ -408,11 +412,13 @@ let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
-let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true };
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true, htf: true };
 
 // ICT overlay series storage
 let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
 let kzSeries = [];
+let htfSeries = [];
+let htfCandles = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
@@ -488,6 +494,14 @@ async function loadChart() {
   candles = await fetchCandles(currentSymbol, currentTF);
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
+
+  // HTF 4H 데이터 로드 (현재가 5m/15m/1h일 때만)
+  if (['1m','5m','15m','1h'].includes(currentTF)) {
+    htfCandles = await fetchCandles(currentSymbol, '4h');
+  } else {
+    htfCandles = [];
+  }
+
   analyzeICT(candles);
   connectWS();
 }
@@ -602,6 +616,9 @@ function analyzeICT(data) {
   // Killzone
   drawKillzones(data);
 
+  // HTF 4H OB/FVG
+  drawHTF(data);
+
   // Draw overlays
   drawFVG(fvgBull, fvgBear, data);
   drawOB(obBull, obBear, data);
@@ -655,6 +672,95 @@ function detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias) {
 
   badge.className = `signal-badge show ${signal}`;
   badge.textContent = label;
+}
+
+// ─── HTF 4H OB/FVG ───────────────────────────────────────
+function drawHTF(data) {
+  // 기존 HTF 제거
+  htfSeries.forEach(s => {
+    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
+    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+  });
+  htfSeries = [];
+  if (!layers.htf || htfCandles.length < 10) return;
+  if (!['1m','5m','15m','1h'].includes(currentTF)) return;
+
+  const price = data[data.length - 1].close;
+  const lastTime = data[data.length - 1].time;
+  const hData = htfCandles;
+
+  // 4H FVG
+  const htfFvgBull = [], htfFvgBear = [];
+  for (let i = 1; i < hData.length - 1; i++) {
+    const prev = hData[i-1], curr = hData[i], next = hData[i+1];
+    if (prev.high < next.low) htfFvgBull.push({ time: curr.time, low: prev.high, high: next.low });
+    if (prev.low > next.high) htfFvgBear.push({ time: curr.time, low: next.high, high: prev.low });
+  }
+
+  // 4H OB
+  const htfObBull = [], htfObBear = [];
+  for (let i = 1; i < hData.length - 2; i++) {
+    const curr = hData[i], next = hData[i+1], next2 = hData[i+2];
+    if (curr.close < curr.open && (next.close > curr.high || next2.close > curr.high))
+      htfObBull.push({ low: curr.low, high: curr.high });
+    if (curr.close > curr.open && (next.close < curr.low || next2.close < curr.low))
+      htfObBear.push({ low: curr.low, high: curr.high });
+  }
+
+  // 현재가 아래 4H 강세 OB 1개
+  const belowOB = htfObBull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
+  if (belowOB) {
+    const s = addHTFBox(lastTime, belowOB.low, belowOB.high, 'rgba(0,229,160,0.06)', '#00e5a0');
+    htfSeries.push(s);
+  }
+
+  // 현재가 위 4H 약세 OB 1개
+  const aboveOB = htfObBear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
+  if (aboveOB) {
+    const s = addHTFBox(lastTime, aboveOB.low, aboveOB.high, 'rgba(255,68,102,0.06)', '#ff4466');
+    htfSeries.push(s);
+  }
+
+  // 현재가 아래 4H 강세 FVG 1개
+  const belowFVG = htfFvgBull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
+  if (belowFVG) {
+    const s = addHTFBox(lastTime, belowFVG.low, belowFVG.high, 'rgba(0,180,255,0.06)', '#00b4ff');
+    htfSeries.push(s);
+  }
+
+  // 현재가 위 4H 약세 FVG 1개
+  const aboveFVG = htfFvgBear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
+  if (aboveFVG) {
+    const s = addHTFBox(lastTime, aboveFVG.low, aboveFVG.high, 'rgba(255,140,0,0.06)', '#ff8c00');
+    htfSeries.push(s);
+  }
+}
+
+function addHTFBox(lastTime, low, high, fillColor, lineColor) {
+  // 차트 시작부터 현재까지 넓게 표시
+  const startTime = lastTime - 86400 * 7; // 7일 전부터
+  const top = chart.addLineSeries({
+    color: lineColor,
+    lineWidth: 2,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+    title: '4H',
+  });
+  top.setData([{ time: startTime, value: high }, { time: lastTime, value: high }]);
+
+  const bot = chart.addLineSeries({
+    color: lineColor,
+    lineWidth: 2,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lastValueVisible: false,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+  });
+  bot.setData([{ time: startTime, value: low }, { time: lastTime, value: low }]);
+
+  return { top, bot };
 }
 
 // ─── KILLZONE ─────────────────────────────────────────────
@@ -878,11 +984,11 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
 }
 
 function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries, ...htfSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
   });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = []; htfSeries = [];
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
@@ -912,6 +1018,7 @@ function toggleLayer(name) {
     obBear: 'leg-ob-bear',
     liq: 'leg-liq',
     kz: 'leg-kz',
+    htf: 'leg-htf',
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
