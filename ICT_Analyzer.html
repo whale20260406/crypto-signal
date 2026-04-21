@@ -773,25 +773,23 @@ function drawKillzones(data) {
   kzSeries = [];
   if (!layers.kz) return;
 
-  // 킬존 정의 (KST = UTC+9)
-  // 아시아: 01:00~03:00 KST (= 00:00~02:00 UTC+9 → 실제 02:00~04:00 KST)
-  // 런던:   16:00~18:00 KST
-  // 뉴욕:   22:00~00:00 KST
+  // 킬존 정의 (UTC 기준)
+  // 아시아: 00:00~03:00 UTC (한국 09:00~12:00)
+  // 런던:   07:00~10:00 UTC (한국 16:00~19:00)
+  // 뉴욕:   13:00~16:00 UTC (한국 22:00~01:00)
   const kzDefs = [
-    { label: '🇬🇧 런던',  startH: 16, endH: 18, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
-    { label: '🇺🇸 뉴욕',  startH: 22, endH: 24, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
+    { label: '🇬🇧 런던',  startH: 7,  endH: 10, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
+    { label: '🇺🇸 뉴욕',  startH: 13, endH: 16, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
   ];
 
   // 현재 킬존 뱃지 업데이트
   const nowUTC = new Date();
-  const kstHour = (nowUTC.getUTCHours() + 9) % 24;
+  const utcHour = nowUTC.getUTCHours();
   const kzBadge = document.getElementById('killzoneBadge');
   let currentKZ = null;
   kzDefs.forEach(kz => {
-    if (kstHour >= kz.startH && kstHour < kz.endH) currentKZ = kz;
+    if (utcHour >= kz.startH && utcHour < kz.endH) currentKZ = kz;
   });
-  // 뉴욕 자정 넘어가는 경우
-  if (kstHour === 0) currentKZ = kzDefs[2];
 
   if (currentKZ) {
     kzBadge.textContent = currentKZ.label + ' 킬존';
@@ -815,7 +813,7 @@ function drawKillzones(data) {
   const kstOffset = 9 * 3600;
 
   // 데이터 범위 내 킬존 박스 그리기
-  let dayStart = Math.floor((firstTime + kstOffset) / daySeconds) * daySeconds - kstOffset;
+  let dayStart = Math.floor(firstTime / daySeconds) * daySeconds;
   while (dayStart < lastTime) {
     kzDefs.forEach(kz => {
       const kzStart = dayStart + kz.startH * 3600;
@@ -844,19 +842,15 @@ function detectAMD(data) {
   // 최근 봉 기준으로 하루 AMD 패턴 분석
   // 아시아장(축적) → 런던(조작) → 뉴욕(배분) 흐름
   const now = data[data.length - 1].time;
-  const kstHour = ((new Date(now * 1000).getUTCHours()) + 9) % 24;
+  const utcHour = new Date(now * 1000).getUTCHours();
 
-  // 아시아: 02~10, 런던: 16~18, 뉴욕: 22~02
+  // 아시아: 00~03 UTC, 런던: 07~10 UTC, 뉴욕: 13~16 UTC
   let phase = '-';
-  if (kstHour >= 2 && kstHour < 10) {
-    phase = '축적'; // Accumulation
-  } else if (kstHour >= 10 && kstHour < 16) {
-    phase = '-';
-  } else if (kstHour >= 16 && kstHour < 20) {
-    // 런던 → 가격 조작 (스파이크/유동성 사냥)
+  if (utcHour >= 0 && utcHour < 3) {
+    phase = '축적';
+  } else if (utcHour >= 7 && utcHour < 10) {
     phase = '조작';
-  } else if (kstHour >= 20 || kstHour < 2) {
-    // 뉴욕 → 진짜 방향 (배분)
+  } else if (utcHour >= 13 && utcHour < 16) {
     phase = '배분';
   }
 
