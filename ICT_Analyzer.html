@@ -438,7 +438,7 @@ function initChart() {
       horzLine: { color: '#333355', width: 1, style: 3 },
     },
     rightPriceScale: { borderColor: '#1e1e2e', scaleMargins: { top: 0.08, bottom: 0.08 } },
-    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false },
+    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false, timezone: 'Asia/Seoul' },
   });
 
   candleSeries = chart.addCandlestickSeries({
@@ -481,7 +481,7 @@ async function fetchCandles(symbol, tf) {
   }
   if (!data) { alert('데이터 로드 실패\nBrave 설정 > 보안 > CORS 허용 필요'); return []; }
   return data.map(k => ({
-    time: k[0] / 1000,
+    time: k[0] / 1000 + 9 * 3600,
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
@@ -514,7 +514,7 @@ function connectWS() {
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
-      time: d.t / 1000,
+      time: d.t / 1000 + 9 * 3600,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low: parseFloat(d.l),
