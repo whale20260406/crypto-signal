@@ -366,6 +366,10 @@
     <div class="leg-box" style="background:linear-gradient(90deg,rgba(0,229,160,0.4) 33%,rgba(255,120,0,0.4) 33% 66%,rgba(255,200,0,0.4) 66%);border:1px solid #888"></div>
     <span class="leg-label">킬존</span>
   </div>
+  <div class="leg-item" id="leg-htf" onclick="toggleHTF()">
+    <div class="leg-box" style="background:rgba(255,255,255,0.15);border:1px solid #aaa;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa">4H</div>
+    <span class="leg-label">4H구간</span>
+  </div>
 
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
@@ -420,6 +424,7 @@ let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: tr
 let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
 let kzSeries = [];
 let htfSeries = [];
+let htfObBullSeries = [], htfObBearSeries = [], htfFvgBullSeries = [], htfFvgBearSeries = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
@@ -496,7 +501,7 @@ async function loadChart() {
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
   analyzeICT(candles);
-  if (currentTF === '1h' || currentTF === '15m' || currentTF === '5m' || currentTF === '1m') {
+  if (htfOn && (currentTF === '1h' || currentTF === '15m' || currentTF === '5m' || currentTF === '1m')) {
     draw4HOverlay();
   }
   connectWS();
@@ -898,103 +903,58 @@ function clearOverlays() {
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
 
-  htfSeries.forEach(s => {
-    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
-    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-    if (s && s._remove) s._remove();
-  });
-  htfSeries = [];
+  clearHtfSeries();
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
-async function draw4HOverlay() {
-  // 기존 HTF 시리즈 제거
-  htfSeries.forEach(s => {
-    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
-    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+function clearHtfSeries() {
+  [...htfObBullSeries, ...htfObBearSeries, ...htfFvgBullSeries, ...htfFvgBearSeries].forEach(s => {
     if (s && s._remove) s._remove();
   });
+  htfObBullSeries = []; htfObBearSeries = []; htfFvgBullSeries = []; htfFvgBearSeries = [];
   htfSeries = [];
+}
+
+async function draw4HOverlay() {
+  clearHtfSeries();
 
   try {
     const htfData = await fetchCandles(currentSymbol, '4h');
     if (!htfData || htfData.length < 5) return;
 
-    const lastTime = candles[candles.length - 1].time;
     const recent4H = htfData.slice(-20);
 
-    // 4H OB/FVG 감지
     for (let i = 1; i < recent4H.length - 1; i++) {
       const prev = recent4H[i - 1];
       const curr = recent4H[i];
       const next = recent4H[i + 1];
 
-      // 강세 OB → 점선 표시
+      // 강세 OB
       if (curr.close < curr.open && next.close > next.open && next.close > curr.high) {
-        const lineH = candleSeries.createPriceLine({
-          price: curr.high,
-          color: '#00e5a0',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '4H 강세OB',
-        });
-        const lineL = candleSeries.createPriceLine({
-          price: curr.low,
-          color: '#00e5a0',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: false,
-          title: '',
-        });
-        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } });
+        const lineH = candleSeries.createPriceLine({ price: curr.high, color: '#00e5a0', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H 강세OB' });
+        const lineL = candleSeries.createPriceLine({ price: curr.low,  color: '#00e5a0', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '' });
+        const obj = { _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } };
+        htfObBullSeries.push(obj);
       }
 
-      // 약세 OB → 점선 표시
+      // 약세 OB
       if (curr.close > curr.open && next.close < next.open && next.close < curr.low) {
-        const lineH = candleSeries.createPriceLine({
-          price: curr.high,
-          color: '#ff4466',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '4H 약세OB',
-        });
-        const lineL = candleSeries.createPriceLine({
-          price: curr.low,
-          color: '#ff4466',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: false,
-          title: '',
-        });
-        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } });
+        const lineH = candleSeries.createPriceLine({ price: curr.high, color: '#ffc800', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H 약세OB' });
+        const lineL = candleSeries.createPriceLine({ price: curr.low,  color: '#ffc800', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '' });
+        const obj = { _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } };
+        htfObBearSeries.push(obj);
       }
 
       // 강세 FVG
       if (next.low > prev.high) {
-        const line = candleSeries.createPriceLine({
-          price: (next.low + prev.high) / 2,
-          color: '#00b4ff',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '4H',
-        });
-        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+        const line = candleSeries.createPriceLine({ price: (next.low + prev.high) / 2, color: '#00b4ff', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H FVG' });
+        htfFvgBullSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
       }
 
       // 약세 FVG
       if (next.high < prev.low) {
-        const line = candleSeries.createPriceLine({
-          price: (next.high + prev.low) / 2,
-          color: '#c864ff',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '4H',
-        });
-        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+        const line = candleSeries.createPriceLine({ price: (next.high + prev.low) / 2, color: '#c864ff', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H FVG' });
+        htfFvgBearSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
       }
     }
   } catch(e) {
@@ -1029,7 +989,36 @@ function toggleLayer(name) {
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
+
+  // 4H 점선도 같이 ON/OFF
+  const toggle4H = (series) => {
+    series.forEach(s => {
+      if (s && s._remove) {
+        // visibility 토글은 remove/redraw로 처리
+      }
+    });
+  };
+
   analyzeICT(candles);
+  if (['fvgBull','fvgBear','obBull','obBear'].includes(name)) {
+    clearHtfSeries();
+    if (['1h','15m','5m','1m'].includes(currentTF)) {
+      draw4HOverlay();
+    }
+  }
+}
+
+let htfOn = true;
+
+function toggleHTF() {
+  htfOn = !htfOn;
+  const el = document.getElementById('leg-htf');
+  if (el) el.classList.toggle('off', !htfOn);
+  if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
+    draw4HOverlay();
+  } else {
+    clearHtfSeries();
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────
