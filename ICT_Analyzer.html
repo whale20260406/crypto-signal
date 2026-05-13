@@ -853,7 +853,6 @@ function drawOB(bull, bear, data) {
 
 function drawLiquidity(liquidity) {
   if (!layers.liq) return;
-  if (currentTF === '4h' || currentTF === '1d') return;
   const recent = liquidity.slice(-6);
   recent.forEach(liq => {
     const line = candleSeries.createPriceLine({
@@ -894,12 +893,11 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
 }
 
 function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries, ...htfSeries].forEach(s => {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-    if (s && s._remove) s._remove();
   });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = []; htfSeries = [];
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
