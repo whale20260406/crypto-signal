@@ -978,6 +978,8 @@ async function draw4HOverlay() {
 // ─── OTE (Optimal Trade Entry) ────────────────────────────
 function drawOTE(data) {
   if (!layers.ote || !candleSeries || data.length < 20) return;
+  if (currentTF === '4h' || currentTF === '1d') return;
+  if (currentTF === '4h' || currentTF === '1d') return;
 
   try {
     // 최근 50개 캔들에서 고점/저점 찾기
