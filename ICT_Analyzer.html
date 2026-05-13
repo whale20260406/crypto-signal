@@ -283,6 +283,11 @@
     animation: badgePop 0.4s ease;
   }
   .killzone-badge.show { display: flex; }
+  .killzone-badge.asia {
+    background: rgba(0,229,160,0.15);
+    border: 1px solid #00e5a0;
+    color: #00e5a0;
+  }
   .killzone-badge.london {
     background: rgba(255,120,0,0.15);
     border: 1px solid #ff7800;
@@ -342,7 +347,7 @@
     <span class="leg-label">강세 FVG</span>
   </div>
   <div class="leg-item" id="leg-fvg-bear" onclick="toggleLayer('fvgBear')">
-    <div class="leg-box" style="background:rgba(255,150,0,0.4);border:1px solid #ff9600"></div>
+    <div class="leg-box" style="background:rgba(200,100,255,0.4);border:1px solid #c864ff"></div>
     <span class="leg-label">약세 FVG</span>
   </div>
   <div class="leg-item" id="leg-ob-bull" onclick="toggleLayer('obBull')">
@@ -361,9 +366,9 @@
     <div class="leg-box" style="background:linear-gradient(90deg,rgba(0,229,160,0.4) 33%,rgba(255,120,0,0.4) 33% 66%,rgba(255,200,0,0.4) 66%);border:1px solid #888"></div>
     <span class="leg-label">킬존</span>
   </div>
-  <div class="leg-item" id="leg-htf" onclick="toggleLayer('htf')">
-    <div class="leg-box" style="background:rgba(255,255,255,0.1);border:2px dashed #ffffff66"></div>
-    <span class="leg-label">4H구간</span>
+  <div class="leg-item" id="leg-ote" onclick="toggleLayer('ote')">
+    <div class="leg-box" style="background:rgba(255,220,0,0.4);border:1px solid #ffdc00"></div>
+    <span class="leg-label">OTE</span>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
@@ -412,13 +417,12 @@ let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
-let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true, htf: true };
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true, ote: true };
 
 // ICT overlay series storage
 let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
 let kzSeries = [];
-let htfSeries = [];
-let htfCandles = [];
+let oteSeries = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
@@ -438,7 +442,7 @@ function initChart() {
       horzLine: { color: '#333355', width: 1, style: 3 },
     },
     rightPriceScale: { borderColor: '#1e1e2e', scaleMargins: { top: 0.08, bottom: 0.08 } },
-    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false, timezone: 'Asia/Seoul' },
+    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false },
   });
 
   candleSeries = chart.addCandlestickSeries({
@@ -481,7 +485,7 @@ async function fetchCandles(symbol, tf) {
   }
   if (!data) { alert('데이터 로드 실패\nBrave 설정 > 보안 > CORS 허용 필요'); return []; }
   return data.map(k => ({
-    time: k[0] / 1000 + 9 * 3600,
+    time: k[0] / 1000,
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
@@ -494,14 +498,6 @@ async function loadChart() {
   candles = await fetchCandles(currentSymbol, currentTF);
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
-
-  // HTF 4H 데이터 로드 (현재가 5m/15m/1h일 때만)
-  if (['1m','5m','15m','1h'].includes(currentTF)) {
-    htfCandles = await fetchCandles(currentSymbol, '4h');
-  } else {
-    htfCandles = [];
-  }
-
   analyzeICT(candles);
   connectWS();
 }
@@ -514,7 +510,7 @@ function connectWS() {
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
-      time: d.t / 1000 + 9 * 3600,
+      time: d.t / 1000,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low: parseFloat(d.l),
@@ -616,13 +612,11 @@ function analyzeICT(data) {
   // Killzone
   drawKillzones(data);
 
-  // HTF 4H OB/FVG
-  drawHTF(data);
-
   // Draw overlays
   drawFVG(fvgBull, fvgBear, data);
   drawOB(obBull, obBear, data);
   drawLiquidity(liquidity);
+  drawOTE(data);
 
   // Stats
   document.getElementById('statFVG').textContent = fvgBull.length + fvgBear.length;
@@ -674,95 +668,6 @@ function detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias) {
   badge.textContent = label;
 }
 
-// ─── HTF 4H OB/FVG ───────────────────────────────────────
-function drawHTF(data) {
-  // 기존 HTF 제거
-  htfSeries.forEach(s => {
-    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
-    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-  });
-  htfSeries = [];
-  if (!layers.htf || htfCandles.length < 10) return;
-  if (!['1m','5m','15m','1h'].includes(currentTF)) return;
-
-  const price = data[data.length - 1].close;
-  const lastTime = data[data.length - 1].time;
-  const hData = htfCandles;
-
-  // 4H FVG
-  const htfFvgBull = [], htfFvgBear = [];
-  for (let i = 1; i < hData.length - 1; i++) {
-    const prev = hData[i-1], curr = hData[i], next = hData[i+1];
-    if (prev.high < next.low) htfFvgBull.push({ time: curr.time, low: prev.high, high: next.low });
-    if (prev.low > next.high) htfFvgBear.push({ time: curr.time, low: next.high, high: prev.low });
-  }
-
-  // 4H OB
-  const htfObBull = [], htfObBear = [];
-  for (let i = 1; i < hData.length - 2; i++) {
-    const curr = hData[i], next = hData[i+1], next2 = hData[i+2];
-    if (curr.close < curr.open && (next.close > curr.high || next2.close > curr.high))
-      htfObBull.push({ low: curr.low, high: curr.high });
-    if (curr.close > curr.open && (next.close < curr.low || next2.close < curr.low))
-      htfObBear.push({ low: curr.low, high: curr.high });
-  }
-
-  // 현재가 아래 4H 강세 OB 1개
-  const belowOB = htfObBull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
-  if (belowOB) {
-    const s = addHTFBox(lastTime, belowOB.low, belowOB.high, 'rgba(0,229,160,0.06)', '#00e5a0');
-    htfSeries.push(s);
-  }
-
-  // 현재가 위 4H 약세 OB 1개
-  const aboveOB = htfObBear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
-  if (aboveOB) {
-    const s = addHTFBox(lastTime, aboveOB.low, aboveOB.high, 'rgba(255,68,102,0.06)', '#ff4466');
-    htfSeries.push(s);
-  }
-
-  // 현재가 아래 4H 강세 FVG 1개
-  const belowFVG = htfFvgBull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
-  if (belowFVG) {
-    const s = addHTFBox(lastTime, belowFVG.low, belowFVG.high, 'rgba(0,180,255,0.06)', '#00b4ff');
-    htfSeries.push(s);
-  }
-
-  // 현재가 위 4H 약세 FVG 1개
-  const aboveFVG = htfFvgBear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
-  if (aboveFVG) {
-    const s = addHTFBox(lastTime, aboveFVG.low, aboveFVG.high, 'rgba(255,140,0,0.06)', '#ff8c00');
-    htfSeries.push(s);
-  }
-}
-
-function addHTFBox(lastTime, low, high, fillColor, lineColor) {
-  // 차트 시작부터 현재까지 넓게 표시
-  const startTime = lastTime - 86400 * 7; // 7일 전부터
-  const top = chart.addLineSeries({
-    color: lineColor,
-    lineWidth: 2,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
-    lastValueVisible: false,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-    title: '4H',
-  });
-  top.setData([{ time: startTime, value: high }, { time: lastTime, value: high }]);
-
-  const bot = chart.addLineSeries({
-    color: lineColor,
-    lineWidth: 2,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
-    lastValueVisible: false,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-  });
-  bot.setData([{ time: startTime, value: low }, { time: lastTime, value: low }]);
-
-  return { top, bot };
-}
-
 // ─── KILLZONE ─────────────────────────────────────────────
 function drawKillzones(data) {
   // 기존 킬존 제거
@@ -773,23 +678,26 @@ function drawKillzones(data) {
   kzSeries = [];
   if (!layers.kz) return;
 
-  // 킬존 정의 (UTC 기준)
-  // 아시아: 00:00~03:00 UTC (한국 09:00~12:00)
-  // 런던:   07:00~10:00 UTC (한국 16:00~19:00)
-  // 뉴욕:   13:00~16:00 UTC (한국 22:00~01:00)
+  // 킬존 정의 (KST = UTC+9)
+  // 아시아: 01:00~03:00 KST (= 00:00~02:00 UTC+9 → 실제 02:00~04:00 KST)
+  // 런던:   16:00~18:00 KST
+  // 뉴욕:   22:00~00:00 KST
   const kzDefs = [
-    { label: '🇬🇧 런던',  startH: 7,  endH: 10, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
-    { label: '🇺🇸 뉴욕',  startH: 13, endH: 16, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
+    { label: '🌏 아시아', startH: 2, endH: 4,  color: 'rgba(0,229,160,0.08)', lineColor: '#00e5a0' },
+    { label: '🇬🇧 런던',  startH: 16, endH: 18, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
+    { label: '🇺🇸 뉴욕',  startH: 22, endH: 24, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
   ];
 
   // 현재 킬존 뱃지 업데이트
   const nowUTC = new Date();
-  const utcHour = nowUTC.getUTCHours();
+  const kstHour = (nowUTC.getUTCHours() + 9) % 24;
   const kzBadge = document.getElementById('killzoneBadge');
   let currentKZ = null;
   kzDefs.forEach(kz => {
-    if (utcHour >= kz.startH && utcHour < kz.endH) currentKZ = kz;
+    if (kstHour >= kz.startH && kstHour < kz.endH) currentKZ = kz;
   });
+  // 뉴욕 자정 넘어가는 경우
+  if (kstHour === 0) currentKZ = kzDefs[2];
 
   if (currentKZ) {
     kzBadge.textContent = currentKZ.label + ' 킬존';
@@ -813,7 +721,7 @@ function drawKillzones(data) {
   const kstOffset = 9 * 3600;
 
   // 데이터 범위 내 킬존 박스 그리기
-  let dayStart = Math.floor(firstTime / daySeconds) * daySeconds;
+  let dayStart = Math.floor((firstTime + kstOffset) / daySeconds) * daySeconds - kstOffset;
   while (dayStart < lastTime) {
     kzDefs.forEach(kz => {
       const kzStart = dayStart + kz.startH * 3600;
@@ -842,15 +750,19 @@ function detectAMD(data) {
   // 최근 봉 기준으로 하루 AMD 패턴 분석
   // 아시아장(축적) → 런던(조작) → 뉴욕(배분) 흐름
   const now = data[data.length - 1].time;
-  const utcHour = new Date(now * 1000).getUTCHours();
+  const kstHour = ((new Date(now * 1000).getUTCHours()) + 9) % 24;
 
-  // 아시아: 00~03 UTC, 런던: 07~10 UTC, 뉴욕: 13~16 UTC
+  // 아시아: 02~10, 런던: 16~18, 뉴욕: 22~02
   let phase = '-';
-  if (utcHour >= 0 && utcHour < 3) {
-    phase = '축적';
-  } else if (utcHour >= 7 && utcHour < 10) {
+  if (kstHour >= 2 && kstHour < 10) {
+    phase = '축적'; // Accumulation
+  } else if (kstHour >= 10 && kstHour < 16) {
+    phase = '-';
+  } else if (kstHour >= 16 && kstHour < 20) {
+    // 런던 → 가격 조작 (스파이크/유동성 사냥)
     phase = '조작';
-  } else if (utcHour >= 13 && utcHour < 16) {
+  } else if (kstHour >= 20 || kstHour < 2) {
+    // 뉴욕 → 진짜 방향 (배분)
     phase = '배분';
   }
 
@@ -912,7 +824,7 @@ function drawFVG(bull, bear, data) {
   const belowBears = bear.filter(z => z.high < price).sort((a,b) => b.high - a.high).slice(0,2);
   belowBears.forEach(fvg => {
     if (!layers.fvgBear) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(255,140,0,0.25)', '#ff8c00', 2);
+    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(200,100,255,0.25)', '#c864ff', 2);
     fvgBearSeries.push(s);
   });
 }
@@ -978,14 +890,66 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
 }
 
 function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries, ...htfSeries].forEach(s => {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
   });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = []; htfSeries = [];
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
+
+  oteSeries.forEach(s => { if (s._remove) s._remove(); });
+  oteSeries = [];
+}
+
+// ─── OTE (Optimal Trade Entry) ────────────────────────────
+function drawOTE(data) {
+  if (!layers.ote || !candleSeries || data.length < 20) return;
+
+  try {
+    // 최근 50개 캔들에서 고점/저점 찾기
+    const recent = data.slice(-50);
+    let swingHigh = -Infinity, swingLow = Infinity;
+    let highIdx = 0, lowIdx = 0;
+
+    recent.forEach((c, i) => {
+      if (c.high > swingHigh) { swingHigh = c.high; highIdx = i; }
+      if (c.low < swingLow)  { swingLow = c.low;  lowIdx = i; }
+    });
+
+    const range = swingHigh - swingLow;
+    if (range <= 0) return;
+
+    // 추세 판단
+    const isBullish = lowIdx > highIdx;
+
+    // 피보나치 레벨
+    const levels = [
+      { ratio: 0.5,   color: '#ffdc00', label: '0.5' },
+      { ratio: 0.62,  color: '#ffb400', label: '0.62' },
+      { ratio: 0.705, color: '#ff8c00', label: '0.705' },
+      { ratio: 0.79,  color: '#ff6400', label: '0.79' },
+    ];
+
+    levels.forEach(lv => {
+      const price = isBullish
+        ? swingHigh - range * lv.ratio
+        : swingLow  + range * lv.ratio;
+
+      const line = candleSeries.createPriceLine({
+        price,
+        color: lv.color,
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'OTE ' + lv.label,
+      });
+      oteSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+    });
+  } catch(e) {
+    console.warn('OTE draw error:', e);
+  }
 }
 
 // ─── CONTROLS ─────────────────────────────────────────────
@@ -1012,7 +976,7 @@ function toggleLayer(name) {
     obBear: 'leg-ob-bear',
     liq: 'leg-liq',
     kz: 'leg-kz',
-    htf: 'leg-htf',
+    ote: 'leg-ote',
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
