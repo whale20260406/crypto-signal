@@ -929,16 +929,46 @@ async function draw4HOverlay() {
       const curr = recent4H[i];
       const next = recent4H[i + 1];
 
-      // 강세 OB (하락 후 상승 전환 마지막 음봉)
+      // 강세 OB → 점선 표시
       if (curr.close < curr.open && next.close > next.open && next.close > curr.high) {
-        const s = addBoxSeries(curr.time, lastTime, curr.low, curr.high, 'rgba(0,229,160,0.15)', '#00e5a0', 2);
-        htfSeries.push(s);
+        const lineH = candleSeries.createPriceLine({
+          price: curr.high,
+          color: '#00e5a0',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H 강세OB',
+        });
+        const lineL = candleSeries.createPriceLine({
+          price: curr.low,
+          color: '#00e5a0',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: '',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } });
       }
 
-      // 약세 OB (상승 후 하락 전환 마지막 양봉)
+      // 약세 OB → 점선 표시
       if (curr.close > curr.open && next.close < next.open && next.close < curr.low) {
-        const s = addBoxSeries(curr.time, lastTime, curr.low, curr.high, 'rgba(255,68,102,0.15)', '#ff4466', 2);
-        htfSeries.push(s);
+        const lineH = candleSeries.createPriceLine({
+          price: curr.high,
+          color: '#ff4466',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H 약세OB',
+        });
+        const lineL = candleSeries.createPriceLine({
+          price: curr.low,
+          color: '#ff4466',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: '',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } });
       }
 
       // 강세 FVG
@@ -958,7 +988,7 @@ async function draw4HOverlay() {
       if (next.high < prev.low) {
         const line = candleSeries.createPriceLine({
           price: (next.high + prev.low) / 2,
-          color: '#ff8c00',
+          color: '#c864ff',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
