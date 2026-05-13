@@ -499,7 +499,7 @@ async function loadChart() {
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
   analyzeICT(candles);
-  if (currentTF !== '4h' && currentTF !== '1d') {
+  if (currentTF === '1h' || currentTF === '15m' || currentTF === '5m' || currentTF === '1m') {
     draw4HOverlay();
   }
   connectWS();
