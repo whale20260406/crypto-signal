@@ -419,6 +419,7 @@ let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: tr
 // ICT overlay series storage
 let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
 let kzSeries = [];
+let htfSeries = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
@@ -896,11 +897,16 @@ function clearOverlays() {
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
+
+  htfSeries.forEach(s => {
+    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
+    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+    if (s && s._remove) s._remove();
+  });
+  htfSeries = [];
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
-let htfSeries = [];
-
 async function draw4HOverlay() {
   // 기존 HTF 시리즈 제거
   htfSeries.forEach(s => {
