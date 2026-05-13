@@ -944,8 +944,31 @@ async function draw4HOverlay() {
         htfSeries.push(s);
       }
 
-      // 강세 FVG (점선 제거 - 박스만 유지)
-      // 약세 FVG (점선 제거 - 박스만 유지)
+      // 강세 FVG
+      if (next.low > prev.high) {
+        const line = candleSeries.createPriceLine({
+          price: (next.low + prev.high) / 2,
+          color: '#00b4ff',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
+
+      // 약세 FVG
+      if (next.high < prev.low) {
+        const line = candleSeries.createPriceLine({
+          price: (next.high + prev.low) / 2,
+          color: '#ff8c00',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
     }
   } catch(e) {
     console.warn('4H overlay error:', e);
