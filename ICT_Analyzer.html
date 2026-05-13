@@ -499,6 +499,9 @@ async function loadChart() {
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
   analyzeICT(candles);
+  if (currentTF !== '4h' && currentTF !== '1d') {
+    draw4HOverlay();
+  }
   connectWS();
 }
 
@@ -901,6 +904,74 @@ function clearOverlays() {
 
   oteSeries.forEach(s => { if (s._remove) s._remove(); });
   oteSeries = [];
+}
+
+// ─── 4H OVERLAY ───────────────────────────────────────────
+let htfSeries = [];
+
+async function draw4HOverlay() {
+  // 기존 HTF 시리즈 제거
+  htfSeries.forEach(s => {
+    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
+    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+    if (s && s._remove) s._remove();
+  });
+  htfSeries = [];
+
+  try {
+    const htfData = await fetchCandles(currentSymbol, '4h');
+    if (!htfData || htfData.length < 5) return;
+
+    const lastTime = candles[candles.length - 1].time;
+    const recent4H = htfData.slice(-20);
+
+    // 4H OB/FVG 감지
+    for (let i = 1; i < recent4H.length - 1; i++) {
+      const prev = recent4H[i - 1];
+      const curr = recent4H[i];
+      const next = recent4H[i + 1];
+
+      // 강세 OB (하락 후 상승 전환 마지막 음봉)
+      if (curr.close < curr.open && next.close > next.open && next.close > curr.high) {
+        const s = addBoxSeries(curr.time, lastTime, curr.low, curr.high, 'rgba(0,229,160,0.15)', '#00e5a0', 2);
+        htfSeries.push(s);
+      }
+
+      // 약세 OB (상승 후 하락 전환 마지막 양봉)
+      if (curr.close > curr.open && next.close < next.open && next.close < curr.low) {
+        const s = addBoxSeries(curr.time, lastTime, curr.low, curr.high, 'rgba(255,68,102,0.15)', '#ff4466', 2);
+        htfSeries.push(s);
+      }
+
+      // 강세 FVG
+      if (next.low > prev.high) {
+        const line = candleSeries.createPriceLine({
+          price: (next.low + prev.high) / 2,
+          color: '#00b4ff',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
+
+      // 약세 FVG
+      if (next.high < prev.low) {
+        const line = candleSeries.createPriceLine({
+          price: (next.high + prev.low) / 2,
+          color: '#ff8c00',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
+    }
+  } catch(e) {
+    console.warn('4H overlay error:', e);
+  }
 }
 
 // ─── OTE (Optimal Trade Entry) ────────────────────────────
