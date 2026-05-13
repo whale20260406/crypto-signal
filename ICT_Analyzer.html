@@ -894,11 +894,12 @@ function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
 }
 
 function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
+  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries, ...htfSeries].forEach(s => {
     if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
     if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
+    if (s && s._remove) s._remove();
   });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
+  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = []; htfSeries = [];
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
@@ -944,9 +945,31 @@ async function draw4HOverlay() {
         htfSeries.push(s);
       }
 
-      // 강세 FVG 점선 제거됨
+      // 강세 FVG
+      if (next.low > prev.high) {
+        const line = candleSeries.createPriceLine({
+          price: (next.low + prev.high) / 2,
+          color: '#00b4ff',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
 
-      // 약세 FVG 점선 제거됨
+      // 약세 FVG
+      if (next.high < prev.low) {
+        const line = candleSeries.createPriceLine({
+          price: (next.high + prev.low) / 2,
+          color: '#ff8c00',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '4H',
+        });
+        htfSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
+      }
     }
   } catch(e) {
     console.warn('4H overlay error:', e);
