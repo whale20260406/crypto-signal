@@ -990,21 +990,9 @@ function toggleLayer(name) {
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
 
-  // 4H 점선도 같이 ON/OFF
-  const toggle4H = (series) => {
-    series.forEach(s => {
-      if (s && s._remove) {
-        // visibility 토글은 remove/redraw로 처리
-      }
-    });
-  };
-
   analyzeICT(candles);
-  if (['fvgBull','fvgBear','obBull','obBear'].includes(name)) {
-    clearHtfSeries();
-    if (['1h','15m','5m','1m'].includes(currentTF)) {
-      draw4HOverlay();
-    }
+  if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
+    draw4HOverlay();
   }
 }
 
