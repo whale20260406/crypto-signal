@@ -526,6 +526,9 @@ function connectWS() {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
       analyzeICT(candles);
+      if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
+        draw4HOverlay();
+      }
     }
     updatePrice(candle);
   };
