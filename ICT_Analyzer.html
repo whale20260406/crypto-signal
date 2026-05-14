@@ -497,6 +497,7 @@ async function fetchCandles(symbol, tf) {
 
 async function loadChart() {
   clearOverlays();
+  clearHtfSeries();
   candles = await fetchCandles(currentSymbol, currentTF);
   candleSeries.setData(candles);
   updatePrice(candles[candles.length - 1]);
@@ -905,8 +906,6 @@ function clearOverlays() {
 
   liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
   liqSeries = [];
-
-  clearHtfSeries();
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
