@@ -287,7 +287,7 @@
     <span class="leg-label">강세 FVG</span>
   </div>
   <div class="leg-item" id="leg-fvg-bear" onclick="toggleLayer('fvgBear')">
-    <div class="leg-box" style="background:rgba(200,100,255,0.4);border:1px solid #c864ff"></div>
+    <div class="leg-box" style="background:rgba(255,200,0,0.4);border:1px solid #ffc800"></div>
     <span class="leg-label">약세 FVG</span>
   </div>
   <div class="leg-item" id="leg-ob-bull" onclick="toggleLayer('obBull')">
@@ -501,7 +501,7 @@ function analyzeAndDraw(data) {
   clearMain();
   if (data.length < 5) return;
 
-  const lastTime = data[data.length-1].time;
+  const lastTime = data[data.length-1].time + 86400*7; // 7일 연장
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
@@ -541,7 +541,7 @@ function analyzeAndDraw(data) {
   }
   if (layers.fvgBear) {
     fvgBear.slice(-3).forEach(f => {
-      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(200,100,255,0.15)', '#c864ff', 1);
+      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(255,200,0,0.15)', '#ffc800', 1);
       fvgBearSeries.push(s);
     });
   }
@@ -689,7 +689,7 @@ async function draw4H() {
       // 약세 FVG
       if (n.high < p.low) {
         const mid = (n.high+p.low)/2;
-        const l = addPriceLine(mid,'#c864ff',2,D,'4H FVG');
+        const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
         htf4HLines.push(l);
       }
     }
