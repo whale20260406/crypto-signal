@@ -578,11 +578,11 @@ function analyzeAndDraw(data) {
 
   if (layers.liq) {
     highs.forEach(c => {
-      const l = addPriceLine(c.high,'rgba(255,68,102,0.8)',1,S,'↑ HH');
+      const l = addPriceLine(c.high,'rgba(255,68,102,0.5)',1,LightweightCharts.LineStyle.Dashed,'↑ HH');
       liqLines.push(l);
     });
     lows.forEach(c => {
-      const l = addPriceLine(c.low,'rgba(0,229,160,0.8)',1,S,'↓ LL');
+      const l = addPriceLine(c.low,'rgba(0,229,160,0.5)',1,LightweightCharts.LineStyle.Dashed,'↓ LL');
       liqLines.push(l);
     });
   }
