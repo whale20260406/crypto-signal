@@ -15,10 +15,6 @@
     --accent: #00d4ff;
     --bull: #00e5a0;
     --bear: #ff4466;
-    --ob-bull: rgba(0,229,160,0.15);
-    --ob-bear: rgba(255,68,102,0.15);
-    --fvg-bull: rgba(0,212,255,0.12);
-    --fvg-bear: rgba(255,150,0,0.12);
     --text: #c8c8e0;
     --muted: #555570;
   }
@@ -35,7 +31,6 @@
     overflow: hidden;
   }
 
-  /* TOP BAR */
   .topbar {
     display: flex;
     align-items: center;
@@ -60,7 +55,6 @@
   .symbol-btns {
     display: flex;
     gap: 6px;
-    flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -90,10 +84,7 @@
     gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
-  .tf-btns::-webkit-scrollbar { display: none; }
   .tf-btn {
     padding: 4px 8px;
     border: 1px solid var(--border);
@@ -111,34 +102,35 @@
     background: rgba(0,229,160,0.08);
   }
 
-  /* LEGEND */
   .legend-bar {
     display: flex;
-    gap: 16px;
-    padding: 6px 16px;
+    gap: 12px;
+    padding: 6px 12px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     font-size: 11px;
     flex-wrap: wrap;
+    align-items: center;
   }
   .leg-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     cursor: pointer;
     opacity: 1;
     transition: opacity 0.2s;
+    user-select: none;
   }
   .leg-item.off { opacity: 0.3; }
   .leg-box {
     width: 14px;
     height: 10px;
     border-radius: 2px;
+    flex-shrink: 0;
   }
-  .leg-label { color: var(--muted); font-size: 11px; }
+  .leg-label { color: var(--muted); font-size: 11px; white-space: nowrap; }
 
-  /* CHART */
   #chart-container {
     flex: 1;
     position: relative;
@@ -146,16 +138,13 @@
   }
   #chart { width: 100%; height: 100%; }
 
-  /* BOTTOM PANEL */
   .bottom-panel {
     display: flex;
-    gap: 0;
     background: var(--panel);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
     height: 56px;
   }
-
   .stat-box {
     flex: 1;
     display: flex;
@@ -163,10 +152,9 @@
     align-items: center;
     justify-content: center;
     border-right: 1px solid var(--border);
-    padding: 6px;
+    padding: 4px;
   }
   .stat-box:last-child { border-right: none; }
-
   .stat-label {
     font-size: 9px;
     color: var(--muted);
@@ -184,7 +172,6 @@
   .bear { color: var(--bear); }
   .neutral { color: var(--accent); }
 
-  /* PRICE OVERLAY */
   .price-overlay {
     position: absolute;
     top: 10px;
@@ -199,18 +186,14 @@
     color: #fff;
     text-shadow: 0 0 20px rgba(0,212,255,0.3);
   }
-  .price-change {
-    font-size: 12px;
-    margin-top: 2px;
-  }
+  .price-change { font-size: 12px; margin-top: 2px; }
 
-  /* STATUS */
   .status-dot {
     width: 7px; height: 7px;
     border-radius: 50%;
     background: var(--bull);
     display: inline-block;
-    margin-right: 6px;
+    margin-right: 4px;
     animation: pulse 2s infinite;
   }
   @keyframes pulse {
@@ -218,103 +201,60 @@
     50% { opacity: 0.3; }
   }
 
-  .signal-toast {
-    position: absolute;
-    top: 60px;
-    right: 10px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 11px;
-    z-index: 20;
-    max-width: 200px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  }
-  .signal-toast.show { opacity: 1; }
-
-  /* SIGNAL BADGE */
   .signal-badge {
     display: none;
     align-items: center;
-    gap: 8px;
-    padding: 5px 14px;
+    gap: 6px;
+    padding: 5px 12px;
     border-radius: 6px;
     font-family: 'Space Mono', monospace;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 1px;
     animation: badgePop 0.4s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .signal-badge.show { display: flex; }
-  .signal-badge.buy {
-    background: rgba(0,229,160,0.15);
-    border: 1px solid var(--bull);
+  .signal-badge.buy { background: rgba(0,229,160,0.15); border: 1px solid var(--bull); color: var(--bull); }
+  .signal-badge.sell { background: rgba(255,68,102,0.15); border: 1px solid var(--bear); color: var(--bear); }
+  .signal-badge.wait { background: rgba(0,212,255,0.08); border: 1px solid var(--accent); color: var(--accent); }
+
+  .kz-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .kz-badge.show { display: flex; }
+  .kz-badge.london { background: rgba(255,120,0,0.15); border: 1px solid #ff7800; color: #ff7800; }
+  .kz-badge.ny { background: rgba(255,200,0,0.15); border: 1px solid #ffc800; color: #ffc800; }
+
+  .amd-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.4);
     color: var(--bull);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  .signal-badge.sell {
-    background: rgba(255,68,102,0.15);
-    border: 1px solid var(--bear);
-    color: var(--bear);
-  }
-  .signal-badge.wait {
-    background: rgba(0,212,255,0.08);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-  }
+  .amd-badge.show { display: flex; }
+
   @keyframes badgePop {
     0% { transform: scale(0.8); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
   }
-
-  /* KILLZONE BADGE */
-  .killzone-badge {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    animation: badgePop 0.4s ease;
-  }
-  .killzone-badge.show { display: flex; }
-  .killzone-badge.asia {
-    background: rgba(0,229,160,0.15);
-    border: 1px solid #00e5a0;
-    color: #00e5a0;
-  }
-  .killzone-badge.london {
-    background: rgba(255,120,0,0.15);
-    border: 1px solid #ff7800;
-    color: #ff7800;
-  }
-  .killzone-badge.ny {
-    background: rgba(255,200,0,0.15);
-    border: 1px solid #ffc800;
-    color: #ffc800;
-  }
-
-  /* AMD BADGE */
-  .amd-badge {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    animation: badgePop 0.4s ease;
-    background: rgba(0,229,160,0.08);
-    border: 1px solid rgba(0,229,160,0.4);
-    color: var(--bull);
-  }
-  .amd-badge.show { display: flex; }
 </style>
 </head>
 <body>
@@ -329,7 +269,7 @@
     <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
   </div>
   <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
-  <div id="killzoneBadge" class="killzone-badge"></div>
+  <div id="kzBadge" class="kz-badge"></div>
   <div id="amdBadge" class="amd-badge"></div>
   <div class="tf-btns">
     <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
@@ -343,7 +283,7 @@
 
 <div class="legend-bar">
   <div class="leg-item" id="leg-fvg-bull" onclick="toggleLayer('fvgBull')">
-    <div class="leg-box" style="background:rgba(0,212,255,0.4);border:1px solid #00d4ff"></div>
+    <div class="leg-box" style="background:rgba(0,180,255,0.4);border:1px solid #00b4ff"></div>
     <span class="leg-label">강세 FVG</span>
   </div>
   <div class="leg-item" id="leg-fvg-bear" onclick="toggleLayer('fvgBear')">
@@ -363,14 +303,13 @@
     <span class="leg-label">유동성</span>
   </div>
   <div class="leg-item" id="leg-kz" onclick="toggleLayer('kz')">
-    <div class="leg-box" style="background:linear-gradient(90deg,rgba(0,229,160,0.4) 33%,rgba(255,120,0,0.4) 33% 66%,rgba(255,200,0,0.4) 66%);border:1px solid #888"></div>
+    <div class="leg-box" style="background:linear-gradient(90deg,rgba(255,120,0,0.5) 50%,rgba(255,200,0,0.5) 50%);border:1px solid #888"></div>
     <span class="leg-label">킬존</span>
   </div>
   <div class="leg-item" id="leg-htf" onclick="toggleHTF()">
-    <div class="leg-box" style="background:rgba(255,255,255,0.15);border:1px solid #aaa;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa">4H</div>
+    <div class="leg-box" style="background:rgba(255,255,255,0.1);border:2px dashed #aaa"></div>
     <span class="leg-label">4H구간</span>
   </div>
-
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
   </div>
@@ -382,7 +321,6 @@
     <div class="price-change" id="priceChange">--</div>
   </div>
   <div id="chart"></div>
-  <div class="signal-toast" id="signalToast"></div>
 </div>
 
 <div class="bottom-panel">
@@ -413,38 +351,32 @@
 </div>
 
 <script>
+// ─── STATE ────────────────────────────────────────────────
 let chart, candleSeries;
 let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
+let htfOn = true;
+let openPrice = null;
+
 let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true };
 
-// ICT overlay series storage
-let fvgBullSeries = [], fvgBearSeries = [], obBullSeries = [], obBearSeries = [], liqSeries = [];
-let kzSeries = [];
-let htfSeries = [];
-let htfObBullSeries = [], htfObBearSeries = [], htfFvgBullSeries = [], htfFvgBearSeries = [];
+// overlay storage
+let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], kzSeries=[], liqLines=[];
+// 4H overlay (priceLine 기반)
+let htf4HLines = [];
 
 // ─── CHART INIT ───────────────────────────────────────────
 function initChart() {
-  const container = document.getElementById('chart');
-  chart = LightweightCharts.createChart(container, {
-    layout: {
-      background: { color: '#0a0a0f' },
-      textColor: '#555570',
-    },
-    grid: {
-      vertLines: { color: '#1a1a28' },
-      horzLines: { color: '#1a1a28' },
-    },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#333355', width: 1, style: 3 },
-      horzLine: { color: '#333355', width: 1, style: 3 },
-    },
-    rightPriceScale: { borderColor: '#1e1e2e', scaleMargins: { top: 0.08, bottom: 0.08 } },
-    timeScale: { borderColor: '#1e1e2e', timeVisible: true, secondsVisible: false },
+  chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
+    grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#1e1e2e' },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul' },
+    handleScroll: true,
+    handleScale: true,
   });
 
   candleSeries = chart.addCandlestickSeries({
@@ -456,56 +388,312 @@ function initChart() {
     wickDownColor: '#ff4466',
   });
 
-  window.addEventListener('resize', () => {
-    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  window.addEventListener('resize', () => chart.resize(
+    document.getElementById('chart').clientWidth,
+    document.getElementById('chart').clientHeight
+  ));
+}
+
+// ─── DATA ─────────────────────────────────────────────────
+async function fetchCandles(symbol, tf) {
+  const tfMap = { '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d' };
+  const interval = tfMap[tf] || '1h';
+  const limit = 200;
+  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`;
+
+  try {
+    let res = await fetch(binanceUrl);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return data.map(k => ({
+      time: k[0]/1000 + 9*3600,
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low:  parseFloat(k[3]),
+      close:parseFloat(k[4]),
+    }));
+  } catch {
+    try {
+      let res = await fetch(proxy);
+      const data = await res.json();
+      return data.map(k => ({
+        time: k[0]/1000 + 9*3600,
+        open: parseFloat(k[1]),
+        high: parseFloat(k[2]),
+        low:  parseFloat(k[3]),
+        close:parseFloat(k[4]),
+      }));
+    } catch { return []; }
+  }
+}
+
+// ─── LOAD CHART ───────────────────────────────────────────
+async function loadChart() {
+  clearAll();
+  candles = await fetchCandles(currentSymbol, currentTF);
+  if (!candles.length) return;
+  openPrice = candles[0].open;
+  candleSeries.setData(candles);
+  updatePrice(candles[candles.length-1]);
+  analyzeAndDraw(candles);
+  if (isLTF()) await draw4H();
+  connectWS();
+}
+
+function isLTF() {
+  return ['1m','5m','15m','1h'].includes(currentTF);
+}
+
+// ─── CLEAR ────────────────────────────────────────────────
+function clearMain() {
+  [...fvgBullSeries,...fvgBearSeries,...obBullSeries,...obBearSeries,...kzSeries].forEach(s => {
+    if (s&&s.top) { try{chart.removeSeries(s.top);}catch(e){} }
+    if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
+  });
+  fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; kzSeries=[];
+  liqLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  liqLines=[];
+}
+
+function clearHTF() {
+  htf4HLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  htf4HLines=[];
+}
+
+function clearAll() {
+  clearMain();
+  clearHTF();
+}
+
+// ─── PRICE LINE HELPER ────────────────────────────────────
+function addPriceLine(price, color, width, style, label, labelVis=true) {
+  return candleSeries.createPriceLine({
+    price, color,
+    lineWidth: width,
+    lineStyle: style,
+    axisLabelVisible: labelVis,
+    title: label,
   });
 }
 
-// ─── DATA FETCH ───────────────────────────────────────────
-async function fetchCandles(symbol, tf) {
-  const limit = 200;
-  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`;
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(binanceUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`,
-    `https://proxy.cors.sh/${binanceUrl}`,
-  ];
-  let data = null;
-  // 직접 연결 시도
-  try {
-    const res = await fetch(binanceUrl);
-    if (res.ok) data = await res.json();
-  } catch(e) {}
-  // 프록시 순차 시도
-  if (!data) {
-    for (const proxy of proxies) {
-      try {
-        const res = await fetch(proxy);
-        if (res.ok) { data = await res.json(); break; }
-      } catch(e) {}
-    }
-  }
-  if (!data) { alert('데이터 로드 실패\nBrave 설정 > 보안 > CORS 허용 필요'); return []; }
-  return data.map(k => ({
-    time: k[0] / 1000,
-    open: parseFloat(k[1]),
-    high: parseFloat(k[2]),
-    low: parseFloat(k[3]),
-    close: parseFloat(k[4]),
-  }));
+// ─── BOX HELPER ───────────────────────────────────────────
+function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
+  const topLine = chart.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+  });
+  topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
+
+  const botLine = chart.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+  });
+  botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
+
+  return { top: topLine, bot: botLine };
 }
 
-async function loadChart() {
-  clearOverlays();
-  clearHtfSeries();
-  candles = await fetchCandles(currentSymbol, currentTF);
-  candleSeries.setData(candles);
-  updatePrice(candles[candles.length - 1]);
-  analyzeICT(candles);
-  if (htfOn && (currentTF === '1h' || currentTF === '15m' || currentTF === '5m' || currentTF === '1m')) {
-    draw4HOverlay();
+// ─── ICT ANALYSIS ─────────────────────────────────────────
+function analyzeAndDraw(data) {
+  clearMain();
+  if (data.length < 5) return;
+
+  const lastTime = data[data.length-1].time;
+  const D = LightweightCharts.LineStyle.Dashed;
+  const S = LightweightCharts.LineStyle.Solid;
+
+  // ── 킬존 ──────────────────────────────────────────────
+  if (layers.kz) {
+    const kzDefs = [
+      { label:'런던', startH:16, endH:19, color:'rgba(255,120,0,0.08)', lc:'#ff7800' },
+      { label:'뉴욕',  startH:22, endH:25, color:'rgba(255,200,0,0.08)', lc:'#ffc800' },
+    ];
+    data.forEach(c => {
+      const d = new Date(c.time*1000);
+      const h = (d.getUTCHours() + 9) % 24;
+      kzDefs.forEach(kz => {
+        const sh = kz.startH % 24, eh = kz.endH % 24;
+        const inKZ = sh < eh ? (h >= sh && h < eh) : (h >= sh || h < eh);
+        if (inKZ) {
+          const s = addBox(c.time, c.time+3600, c.low*0.9995, c.high*1.0005, kz.color, kz.lc, 1);
+          kzSeries.push(s);
+        }
+      });
+    });
   }
-  connectWS();
+
+  // ── FVG ───────────────────────────────────────────────
+  const fvgBull=[], fvgBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const p=data[i-1], n=data[i+1];
+    if (n.low > p.high) fvgBull.push({time:data[i].time, low:p.high, high:n.low});
+    if (n.high < p.low) fvgBear.push({time:data[i].time, low:n.high, high:p.low});
+  }
+
+  if (layers.fvgBull) {
+    fvgBull.slice(-3).forEach(f => {
+      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(0,180,255,0.15)', '#00b4ff', 1);
+      fvgBullSeries.push(s);
+    });
+  }
+  if (layers.fvgBear) {
+    fvgBear.slice(-3).forEach(f => {
+      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(200,100,255,0.15)', '#c864ff', 1);
+      fvgBearSeries.push(s);
+    });
+  }
+
+  // ── OB ────────────────────────────────────────────────
+  const obBull=[], obBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const c=data[i], n=data[i+1];
+    if (c.close<c.open && n.close>n.open && n.close>c.high) obBull.push(c);
+    if (c.close>c.open && n.close<n.open && n.close<c.low)  obBear.push(c);
+  }
+
+  // 현재가 아래 강세 OB
+  const curPrice = data[data.length-1].close;
+  const belowBull = obBull.filter(o=>o.high<curPrice).slice(-2);
+  const aboveBear = obBear.filter(o=>o.low>curPrice).slice(-2);
+
+  if (layers.obBull) {
+    belowBull.forEach(o => {
+      const s = addBox(o.time, lastTime, o.low, o.high, 'rgba(0,229,160,0.15)', '#00e5a0', 2);
+      obBullSeries.push(s);
+    });
+  }
+  if (layers.obBear) {
+    aboveBear.forEach(o => {
+      const s = addBox(o.time, lastTime, o.low, o.high, 'rgba(255,68,102,0.15)', '#ff4466', 2);
+      obBearSeries.push(s);
+    });
+  }
+
+  // ── 유동성 ────────────────────────────────────────────
+  const lows=[...data].sort((a,b)=>a.low-b.low).slice(0,3);
+  const highs=[...data].sort((a,b)=>b.high-a.high).slice(0,3);
+
+  if (layers.liq) {
+    highs.forEach(c => {
+      const l = addPriceLine(c.high,'rgba(255,68,102,0.8)',1,S,'↑ HH');
+      liqLines.push(l);
+    });
+    lows.forEach(c => {
+      const l = addPriceLine(c.low,'rgba(0,229,160,0.8)',1,S,'↓ LL');
+      liqLines.push(l);
+    });
+  }
+
+  // ── 구조/바이어스 분석 ─────────────────────────────────
+  const recent = data.slice(-30);
+  let hh=0, ll=Infinity, hhIdx=0, llIdx=0;
+  recent.forEach((c,i) => {
+    if (c.high>hh) { hh=c.high; hhIdx=i; }
+    if (c.low<ll)  { ll=c.low;  llIdx=i; }
+  });
+  const bias = llIdx > hhIdx ? '상승' : hhIdx > llIdx ? '하락' : '중립';
+
+  // AMD / 킬존
+  const nowUTC = new Date().getUTCHours();
+  const nowKST = (nowUTC + 9) % 24;
+  let amd = '-';
+  if (nowKST>=9&&nowKST<12) amd='축적';
+  else if (nowKST>=16&&nowKST<19) amd='조작';
+  else if (nowKST>=22||nowKST<1) amd='배분';
+
+  // 킬존 배지
+  const kzBadge = document.getElementById('kzBadge');
+  kzBadge.className = 'kz-badge';
+  kzBadge.textContent = '';
+  if (nowKST>=16&&nowKST<19) {
+    kzBadge.classList.add('show','london');
+    kzBadge.textContent='🇬🇧 런던 킬존';
+  } else if (nowKST>=22||nowKST<1) {
+    kzBadge.classList.add('show','ny');
+    kzBadge.textContent='🇺🇸 뉴욕 킬존';
+  }
+
+  // AMD 배지
+  const amdBadge = document.getElementById('amdBadge');
+  amdBadge.className = 'amd-badge';
+  if (amd!=='-') {
+    amdBadge.classList.add('show');
+    amdBadge.textContent = amd;
+  }
+
+  // 신호
+  const sig = document.getElementById('signalBadge');
+  sig.className = 'signal-badge';
+  if (belowBull.length && bias==='상승') {
+    sig.classList.add('show','buy'); sig.textContent='● 매수';
+  } else if (aboveBear.length && bias==='하락') {
+    sig.classList.add('show','sell'); sig.textContent='● 매도';
+  } else {
+    sig.classList.add('show','wait'); sig.textContent='⏳ 대기';
+  }
+
+  // 하단 스탯
+  document.getElementById('statFVG').textContent = fvgBull.length+fvgBear.length;
+  document.getElementById('statOB').textContent = obBull.length+obBear.length;
+  document.getElementById('statLiq').textContent = lows.length+highs.length;
+
+  const mssEl = document.getElementById('statMSS');
+  const mssText = bias==='상승'?'상승':bias==='하락'?'하락':'중립';
+  mssEl.textContent = mssText;
+  mssEl.className = 'stat-val ' + (bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+
+  const amdEl = document.getElementById('statAMD');
+  amdEl.textContent = amd;
+  amdEl.className = 'stat-val ' + (amd==='배분'?'bull':amd==='조작'?'bear':'neutral');
+
+  const biasEl = document.getElementById('statBias');
+  const biasText = bias==='상승'?'매수':bias==='하락'?'매도':'중립';
+  biasEl.textContent = biasText;
+  biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+}
+
+// ─── 4H OVERLAY ───────────────────────────────────────────
+async function draw4H() {
+  clearHTF();
+  try {
+    const htfData = await fetchCandles(currentSymbol, '4h');
+    if (!htfData || htfData.length < 5) return;
+
+    const recent = htfData.slice(-20);
+    const D = LightweightCharts.LineStyle.Dashed;
+
+    for (let i=1; i<recent.length-1; i++) {
+      const p=recent[i-1], c=recent[i], n=recent[i+1];
+
+      // 강세 OB
+      if (c.close<c.open && n.close>n.open && n.close>c.high) {
+        const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
+        const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
+        htf4HLines.push(lH, lL);
+      }
+      // 약세 OB
+      if (c.close>c.open && n.close<n.open && n.close<c.low) {
+        const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
+        const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
+        htf4HLines.push(lH, lL);
+      }
+      // 강세 FVG
+      if (n.low > p.high) {
+        const mid = (n.low+p.high)/2;
+        const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
+        htf4HLines.push(l);
+      }
+      // 약세 FVG
+      if (n.high < p.low) {
+        const mid = (n.high+p.low)/2;
+        const l = addPriceLine(mid,'#c864ff',2,D,'4H FVG');
+        htf4HLines.push(l);
+      }
+    }
+  } catch(e) { console.warn('4H error:', e); }
 }
 
 // ─── WEBSOCKET ────────────────────────────────────────────
@@ -513,25 +701,23 @@ function connectWS() {
   if (ws) ws.close();
   const sym = currentSymbol.toLowerCase();
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onmessage = (e) => {
+  ws.onmessage = async (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
-      time: d.t / 1000,
+      time: d.t/1000 + 9*3600,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
-      low: parseFloat(d.l),
-      close: parseFloat(d.c),
+      low:  parseFloat(d.l),
+      close:parseFloat(d.c),
     };
     candleSeries.update(candle);
-    if (d.x) { // closed candle
+    updatePrice(candle);
+    if (d.x) {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
-      analyzeICT(candles);
-      if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
-        draw4HOverlay();
-      }
+      analyzeAndDraw(candles);
+      if (isLTF() && htfOn) await draw4H();
     }
-    updatePrice(candle);
   };
 }
 
@@ -541,474 +727,49 @@ function updatePrice(candle) {
   const chEl = document.getElementById('priceChange');
   const price = candle.close;
   el.textContent = price > 1000
-    ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
     : price.toFixed(4);
-
-  if (candles.length > 1) {
-    const prev = candles[candles.length - 2]?.close || candles[0].open;
-    const pct = ((price - prev) / prev * 100).toFixed(2);
-    chEl.textContent = (pct >= 0 ? '+' : '') + pct + '%';
-    chEl.style.color = pct >= 0 ? '#00e5a0' : '#ff4466';
-  }
-}
-
-// ─── ICT ANALYSIS ─────────────────────────────────────────
-function analyzeICT(data) {
-  clearOverlays();
-  if (data.length < 10) return;
-
-  const fvgBull = [], fvgBear = [];
-  const obBull = [], obBear = [];
-  const liquidity = [];
-
-  // FVG detection (last 100 candles)
-  const start = Math.max(1, data.length - 50);
-  for (let i = start; i < data.length - 1; i++) {
-    const prev = data[i - 1];
-    const curr = data[i];
-    const next = data[i + 1];
-
-    // Bullish FVG: prev.high < next.low (gap up)
-    if (prev.high < next.low) {
-      fvgBull.push({ time: curr.time, low: prev.high, high: next.low });
-    }
-    // Bearish FVG: prev.low > next.high (gap down)
-    if (prev.low > next.high) {
-      fvgBear.push({ time: curr.time, low: next.high, high: prev.low });
-    }
-  }
-
-  // Order Block detection
-  for (let i = start; i < data.length - 3; i++) {
-    const curr = data[i];
-    const next = data[i + 1];
-    const next2 = data[i + 2];
-
-    // Bullish OB: bearish candle followed by strong bullish move
-    if (curr.close < curr.open) { // bearish candle
-      if (next.close > curr.high || next2.close > curr.high) {
-        obBull.push({ time: curr.time, low: curr.low, high: curr.high });
-      }
-    }
-    // Bearish OB: bullish candle followed by strong bearish move
-    if (curr.close > curr.open) { // bullish candle
-      if (next.close < curr.low || next2.close < curr.low) {
-        obBear.push({ time: curr.time, low: curr.low, high: curr.high });
-      }
-    }
-  }
-
-  // Liquidity: swing highs/lows
-  for (let i = 3; i < data.length - 3; i++) {
-    const c = data[i];
-    const isSwingHigh = data[i-1].high < c.high && data[i-2].high < c.high &&
-                        data[i+1].high < c.high && data[i+2].high < c.high;
-    const isSwingLow  = data[i-1].low > c.low && data[i-2].low > c.low &&
-                        data[i+1].low > c.low && data[i+2].low > c.low;
-    if (isSwingHigh) liquidity.push({ time: c.time, price: c.high, type: 'high' });
-    if (isSwingLow)  liquidity.push({ time: c.time, price: c.low, type: 'low' });
-  }
-
-  // MSS detection
-  const mss = detectMSS(data);
-
-  // Bias
-  const bias = detectBias(data);
-
-  // AMD detection
-  const amd = detectAMD(data);
-
-  // Killzone
-  drawKillzones(data);
-
-  // Draw overlays
-  drawFVG(fvgBull, fvgBear, data);
-  drawOB(obBull, obBear, data);
-  drawLiquidity(liquidity);
-
-  // Stats
-  document.getElementById('statFVG').textContent = fvgBull.length + fvgBear.length;
-  document.getElementById('statOB').textContent = obBull.length + obBear.length;
-  document.getElementById('statLiq').textContent = liquidity.length;
-  const mssEl = document.getElementById('statMSS');
-  mssEl.textContent = mss;
-  mssEl.className = 'stat-val ' + (mss === '상승' ? 'bull' : mss === '하락' ? 'bear' : 'neutral');
-  const amdEl = document.getElementById('statAMD');
-  amdEl.textContent = amd.phase;
-  amdEl.className = 'stat-val ' + (amd.phase === '배분' ? 'bull' : amd.phase === '조작' ? 'bear' : 'neutral');
-  const biasEl = document.getElementById('statBias');
-  biasEl.textContent = bias;
-  biasEl.className = 'stat-val ' + (bias === '매수' ? 'bull' : bias === '매도' ? 'bear' : 'neutral');
-
-  // AMD badge
-  const amdBadge = document.getElementById('amdBadge');
-  const amdIcons = { '축적': '🔵 축적', '조작': '🔴 조작', '배분': '🟢 배분' };
-  if (amdIcons[amd.phase]) {
-    amdBadge.textContent = amdIcons[amd.phase];
-    amdBadge.className = 'amd-badge show';
-  } else {
-    amdBadge.className = 'amd-badge';
-  }
-
-  // Signal detection
-  detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias);
-}
-
-function detectSignal(data, fvgBull, fvgBear, obBull, obBear, bias) {
-  const last = data[data.length - 1];
-  const price = last.close;
-  const badge = document.getElementById('signalBadge');
-
-  let signal = 'wait';
-  let label = '⏳ 대기';
-
-  if (bias === '매수') {
-    const inFVG = fvgBull.slice(-5).some(z => price >= z.low && price <= z.high);
-    const inOB  = obBull.slice(-4).some(z => price >= z.low && price <= z.high);
-    if (inFVG || inOB) { signal = 'buy'; label = '🟢 매수'; }
-  } else if (bias === '매도') {
-    const inFVG = fvgBear.slice(-5).some(z => price >= z.low && price <= z.high);
-    const inOB  = obBear.slice(-4).some(z => price >= z.low && price <= z.high);
-    if (inFVG || inOB) { signal = 'sell'; label = '🔴 매도'; }
-  }
-
-  badge.className = `signal-badge show ${signal}`;
-  badge.textContent = label;
-}
-
-// ─── KILLZONE ─────────────────────────────────────────────
-function drawKillzones(data) {
-  // 기존 킬존 제거
-  kzSeries.forEach(s => {
-    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
-    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-  });
-  kzSeries = [];
-  if (!layers.kz) return;
-
-  // 킬존 정의 (KST = UTC+9)
-  // 아시아: 01:00~03:00 KST (= 00:00~02:00 UTC+9 → 실제 02:00~04:00 KST)
-  // 런던:   16:00~18:00 KST
-  // 뉴욕:   22:00~00:00 KST
-  const kzDefs = [
-    { label: '🌏 아시아', startH: 2, endH: 4,  color: 'rgba(0,229,160,0.08)', lineColor: '#00e5a0' },
-    { label: '🇬🇧 런던',  startH: 16, endH: 18, color: 'rgba(255,120,0,0.08)',  lineColor: '#ff7800' },
-    { label: '🇺🇸 뉴욕',  startH: 22, endH: 24, color: 'rgba(255,200,0,0.08)', lineColor: '#ffc800' },
-  ];
-
-  // 현재 킬존 뱃지 업데이트
-  const nowUTC = new Date();
-  const kstHour = (nowUTC.getUTCHours() + 9) % 24;
-  const kzBadge = document.getElementById('killzoneBadge');
-  let currentKZ = null;
-  kzDefs.forEach(kz => {
-    if (kstHour >= kz.startH && kstHour < kz.endH) currentKZ = kz;
-  });
-  // 뉴욕 자정 넘어가는 경우
-  if (kstHour === 0) currentKZ = kzDefs[2];
-
-  if (currentKZ) {
-    kzBadge.textContent = currentKZ.label + ' 킬존';
-    kzBadge.className = 'killzone-badge show ' +
-      (currentKZ.label.includes('아시아') ? 'asia' : currentKZ.label.includes('런던') ? 'london' : 'ny');
-  } else {
-    kzBadge.className = 'killzone-badge';
-  }
-
-  // 차트에 최근 7일 킬존 음영 표시
-  if (data.length < 2) return;
-  const tf = currentTF;
-  // 분봉/시봉에서만 킬존 의미있음
-  if (!['1m','5m','15m','1h'].includes(tf)) return;
-
-  const lastTime = data[data.length - 1].time;
-  const firstTime = data[0].time;
-
-  // 하루를 초 단위로
-  const daySeconds = 86400;
-  const kstOffset = 9 * 3600;
-
-  // 데이터 범위 내 킬존 박스 그리기
-  let dayStart = Math.floor((firstTime + kstOffset) / daySeconds) * daySeconds - kstOffset;
-  while (dayStart < lastTime) {
-    kzDefs.forEach(kz => {
-      const kzStart = dayStart + kz.startH * 3600;
-      const kzEnd   = dayStart + kz.endH * 3600;
-      if (kzEnd < firstTime || kzStart > lastTime) return;
-
-      // 가격 범위는 차트 전체 (임시 극값)
-      const prices = data.filter(c => c.time >= kzStart && c.time <= kzEnd);
-      if (prices.length === 0) return;
-      const hi = Math.max(...prices.map(c => c.high));
-      const lo = Math.min(...prices.map(c => c.low));
-      if (hi === lo) return;
-
-      const s = addBoxSeries(kzStart, Math.min(kzEnd, lastTime), lo * 0.999, hi * 1.001, kz.color, kz.lineColor, 1);
-      kzSeries.push(s);
-    });
-    dayStart += daySeconds;
-  }
-}
-
-// ─── AMD DETECTION ────────────────────────────────────────
-function detectAMD(data) {
-  // 하루(24봉 기준 1H, 288봉 기준 5m) 내 AMD 판단
-  if (data.length < 10) return { phase: '-' };
-
-  // 최근 봉 기준으로 하루 AMD 패턴 분석
-  // 아시아장(축적) → 런던(조작) → 뉴욕(배분) 흐름
-  const now = data[data.length - 1].time;
-  const kstHour = ((new Date(now * 1000).getUTCHours()) + 9) % 24;
-
-  // 아시아: 02~10, 런던: 16~18, 뉴욕: 22~02
-  let phase = '-';
-  if (kstHour >= 2 && kstHour < 10) {
-    phase = '축적'; // Accumulation
-  } else if (kstHour >= 10 && kstHour < 16) {
-    phase = '-';
-  } else if (kstHour >= 16 && kstHour < 20) {
-    // 런던 → 가격 조작 (스파이크/유동성 사냥)
-    phase = '조작';
-  } else if (kstHour >= 20 || kstHour < 2) {
-    // 뉴욕 → 진짜 방향 (배분)
-    phase = '배분';
-  }
-
-  // 추가로 최근 변동성으로 보정
-  const recent10 = data.slice(-10);
-  const hi = Math.max(...recent10.map(c => c.high));
-  const lo = Math.min(...recent10.map(c => c.low));
-  const range = (hi - lo) / lo * 100;
-
-  // 변동성 낮으면 축적 가능성
-  if (range < 0.3 && phase === '-') phase = '축적';
-
-  return { phase, range: range.toFixed(2) };
-}
-
-// MSS: Market Structure Shift
-function detectMSS(data) {
-  if (data.length < 20) return '-';
-  const recent = data.slice(-20);
-  const highs = recent.map(c => c.high);
-  const lows  = recent.map(c => c.low);
-  const lastClose = data[data.length - 1].close;
-  const prevHigh = Math.max(...highs.slice(0, -3));
-  const prevLow  = Math.min(...lows.slice(0, -3));
-
-  if (lastClose > prevHigh) return '상승';
-  if (lastClose < prevLow) return '하락';
-  return '중립';
-}
-
-// Bias based on recent structure
-function detectBias(data) {
-  if (data.length < 30) return '-';
-  const slice = data.slice(-30);
-  let upMoves = 0, downMoves = 0;
-  for (let i = 1; i < slice.length; i++) {
-    if (slice[i].close > slice[i-1].close) upMoves++;
-    else downMoves++;
-  }
-  if (upMoves > downMoves * 1.3) return '매수';
-  if (downMoves > upMoves * 1.3) return '매도';
-  return '중립';
-}
-
-// ─── DRAWING ──────────────────────────────────────────────
-function drawFVG(bull, bear, data) {
-  const lastTime = data[data.length - 1].time;
-  const price = data[data.length - 1].close;
-
-  // 현재가 바로 위 강세 FVG 2개
-  const aboveBulls = bull.filter(z => z.low > price).sort((a,b) => a.low - b.low).slice(0,2);
-  aboveBulls.forEach(fvg => {
-    if (!layers.fvgBull) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(0,180,255,0.25)', '#00b4ff', 2);
-    fvgBullSeries.push(s);
-  });
-
-  // 현재가 바로 아래 약세 FVG 2개
-  const belowBears = bear.filter(z => z.high < price).sort((a,b) => b.high - a.high).slice(0,2);
-  belowBears.forEach(fvg => {
-    if (!layers.fvgBear) return;
-    const s = addBoxSeries(fvg.time, lastTime, fvg.low, fvg.high, 'rgba(200,100,255,0.25)', '#c864ff', 2);
-    fvgBearSeries.push(s);
-  });
-}
-
-function drawOB(bull, bear, data) {
-  const lastTime = data[data.length - 1].time;
-  const price = data[data.length - 1].close;
-
-  // 현재가 바로 아래 강세 OB 1개
-  const belowBull = bull.filter(z => z.high < price).sort((a,b) => b.high - a.high)[0];
-  if (belowBull && layers.obBull) {
-    const s = addBoxSeries(belowBull.time, lastTime, belowBull.low, belowBull.high, 'rgba(0,220,120,0.25)', '#00dc78', 2);
-    obBullSeries.push(s);
-  }
-
-  // 현재가 바로 위 약세 OB 1개
-  const aboveBear = bear.filter(z => z.low > price).sort((a,b) => a.low - b.low)[0];
-  if (aboveBear && layers.obBear) {
-    const s = addBoxSeries(aboveBear.time, lastTime, aboveBear.low, aboveBear.high, 'rgba(255,50,80,0.25)', '#ff3250', 2);
-    obBearSeries.push(s);
-  }
-}
-
-function drawLiquidity(liquidity) {
-  if (!layers.liq) return;
-  const recent = liquidity.slice(-6);
-  recent.forEach(liq => {
-    const line = candleSeries.createPriceLine({
-      price: liq.price,
-      color: 'rgba(180,130,255,0.4)',
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: false,
-      title: liq.type === 'high' ? '↑ LH' : '↓ LL',
-    });
-    liqSeries.push(line);
-  });
-}
-
-// 2-line box (top=solid, bot=dashed)
-function addBoxSeries(t1, t2, low, high, fillColor, lineColor, lw=2) {
-  const topLine = chart.addLineSeries({
-    color: lineColor,
-    lineWidth: lw,
-    lineStyle: LightweightCharts.LineStyle.Solid,
-    lastValueVisible: false,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-  });
-  topLine.setData([{ time: t1, value: high }, { time: t2, value: high }]);
-
-  const botLine = chart.addLineSeries({
-    color: lineColor,
-    lineWidth: lw,
-    lineStyle: LightweightCharts.LineStyle.Solid,
-    lastValueVisible: false,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-  });
-  botLine.setData([{ time: t1, value: low }, { time: t2, value: low }]);
-
-  return { top: topLine, bot: botLine };
-}
-
-function clearOverlays() {
-  [...fvgBullSeries, ...fvgBearSeries, ...obBullSeries, ...obBearSeries, ...kzSeries].forEach(s => {
-    if (s && s.top) { try { chart.removeSeries(s.top); } catch(e){} }
-    if (s && s.bot) { try { chart.removeSeries(s.bot); } catch(e){} }
-  });
-  fvgBullSeries = []; fvgBearSeries = []; obBullSeries = []; obBearSeries = []; kzSeries = [];
-
-  liqSeries.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
-  liqSeries = [];
-}
-
-// ─── 4H OVERLAY ───────────────────────────────────────────
-function clearHtfSeries() {
-  [...htfObBullSeries, ...htfObBearSeries, ...htfFvgBullSeries, ...htfFvgBearSeries].forEach(s => {
-    if (s && s._remove) s._remove();
-  });
-  htfObBullSeries = []; htfObBearSeries = []; htfFvgBullSeries = []; htfFvgBearSeries = [];
-  htfSeries = [];
-}
-
-async function draw4HOverlay() {
-  clearHtfSeries();
-
-  try {
-    const htfData = await fetchCandles(currentSymbol, '4h');
-    if (!htfData || htfData.length < 5) return;
-
-    const recent4H = htfData.slice(-20);
-
-    for (let i = 1; i < recent4H.length - 1; i++) {
-      const prev = recent4H[i - 1];
-      const curr = recent4H[i];
-      const next = recent4H[i + 1];
-
-      // 강세 OB
-      if (curr.close < curr.open && next.close > next.open && next.close > curr.high) {
-        const lineH = candleSeries.createPriceLine({ price: curr.high, color: '#00e5a0', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H 강세OB' });
-        const lineL = candleSeries.createPriceLine({ price: curr.low,  color: '#00e5a0', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '' });
-        const obj = { _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } };
-        htfObBullSeries.push(obj);
-      }
-
-      // 약세 OB
-      if (curr.close > curr.open && next.close < next.open && next.close < curr.low) {
-        const lineH = candleSeries.createPriceLine({ price: curr.high, color: '#ffc800', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H 약세OB' });
-        const lineL = candleSeries.createPriceLine({ price: curr.low,  color: '#ffc800', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '' });
-        const obj = { _remove: () => { try { candleSeries.removePriceLine(lineH); candleSeries.removePriceLine(lineL); } catch(e){} } };
-        htfObBearSeries.push(obj);
-      }
-
-      // 강세 FVG
-      if (next.low > prev.high) {
-        const line = candleSeries.createPriceLine({ price: (next.low + prev.high) / 2, color: '#00b4ff', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H FVG' });
-        htfFvgBullSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
-      }
-
-      // 약세 FVG
-      if (next.high < prev.low) {
-        const line = candleSeries.createPriceLine({ price: (next.high + prev.low) / 2, color: '#c864ff', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '4H FVG' });
-        htfFvgBearSeries.push({ _remove: () => { try { candleSeries.removePriceLine(line); } catch(e){} } });
-      }
-    }
-  } catch(e) {
-    console.warn('4H overlay error:', e);
+  if (openPrice) {
+    const chg = ((price-openPrice)/openPrice*100).toFixed(2);
+    chEl.textContent = (chg>=0?'+':'')+chg+'%';
+    chEl.style.color = chg>=0?'#00e5a0':'#ff4466';
   }
 }
 
 // ─── CONTROLS ─────────────────────────────────────────────
 function changeSymbol(sym, btn) {
-  document.querySelectorAll('.sym-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sym-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentSymbol = sym;
   loadChart();
 }
 
 function changeTF(tf, btn) {
-  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentTF = tf;
   loadChart();
 }
 
-function toggleLayer(name) {
-  layers[name] = !layers[name];
-  const legMap = {
-    fvgBull: 'leg-fvg-bull',
-    fvgBear: 'leg-fvg-bear',
-    obBull: 'leg-ob-bull',
-    obBear: 'leg-ob-bear',
-    liq: 'leg-liq',
-    kz: 'leg-kz',
-  };
-  const el = document.getElementById(legMap[name]);
-  if (el) el.classList.toggle('off', !layers[name]);
-
-  analyzeICT(candles);
-  if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
-    draw4HOverlay();
-  }
-}
-
-let htfOn = true;
-
 function toggleHTF() {
   htfOn = !htfOn;
   const el = document.getElementById('leg-htf');
   if (el) el.classList.toggle('off', !htfOn);
-  if (htfOn && ['1h','15m','5m','1m'].includes(currentTF)) {
-    draw4HOverlay();
-  } else {
-    clearHtfSeries();
-  }
+  if (htfOn && isLTF()) draw4H();
+  else clearHTF();
+}
+
+function toggleLayer(name) {
+  layers[name] = !layers[name];
+  const legMap = {
+    fvgBull:'leg-fvg-bull', fvgBear:'leg-fvg-bear',
+    obBull:'leg-ob-bull', obBear:'leg-ob-bear',
+    liq:'leg-liq', kz:'leg-kz',
+  };
+  const el = document.getElementById(legMap[name]);
+  if (el) el.classList.toggle('off', !layers[name]);
+  analyzeAndDraw(candles);
+  if (htfOn && isLTF()) draw4H();
 }
 
 // ─── INIT ─────────────────────────────────────────────────
