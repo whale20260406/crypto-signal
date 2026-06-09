@@ -512,7 +512,7 @@ function analyzeAndDraw(data) {
       { label:'런던', startH:16, endH:19, color:'rgba(255,120,0,0.08)', lc:'#ff7800' },
       { label:'뉴욕',  startH:22, endH:25, color:'rgba(255,200,0,0.08)', lc:'#ffc800' },
     ];
-    data.forEach(c => {
+    data.slice(-20).forEach(c => {
       const d = new Date(c.time*1000);
       const h = (d.getUTCHours() + 9) % 24;
       kzDefs.forEach(kz => {
