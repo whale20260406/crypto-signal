@@ -574,8 +574,10 @@ function analyzeAndDraw(data) {
   }
 
   // ── 유동성 ────────────────────────────────────────────
-  const lows=[...data].sort((a,b)=>a.low-b.low).slice(0,3);
-  const highs=[...data].sort((a,b)=>b.high-a.high).slice(0,3);
+  const lastPrice = data[data.length-1].close;
+  const liqBand = lastPrice * 0.03;
+  const lows=[...data].filter(c=>Math.abs(c.low-lastPrice)<=liqBand).sort((a,b)=>a.low-b.low).slice(0,3);
+  const highs=[...data].filter(c=>Math.abs(c.high-lastPrice)<=liqBand).sort((a,b)=>b.high-a.high).slice(0,3);
 
   if (layers.liq) {
     highs.forEach(c => {
@@ -665,33 +667,44 @@ async function draw4H() {
 
     const recent = htfData.slice(-20);
     const D = LightweightCharts.LineStyle.Dashed;
+    const currentPrice = candles.length ? candles[candles.length-1].close : null;
+    const priceBand = currentPrice ? currentPrice * 0.05 : Infinity;
+    const inRange = (price) => currentPrice ? Math.abs(price - currentPrice) <= priceBand : true;
 
     for (let i=1; i<recent.length-1; i++) {
       const p=recent[i-1], c=recent[i], n=recent[i+1];
 
       // 강세 OB
       if (c.close<c.open && n.close>n.open && n.close>c.high) {
-        const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
-        const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
-        htf4HLines.push(lH, lL);
+        if (inRange(c.high) || inRange(c.low)) {
+          const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
+          const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
+          htf4HLines.push(lH, lL);
+        }
       }
       // 약세 OB
       if (c.close>c.open && n.close<n.open && n.close<c.low) {
-        const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
-        const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
-        htf4HLines.push(lH, lL);
+        if (inRange(c.high) || inRange(c.low)) {
+          const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
+          const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
+          htf4HLines.push(lH, lL);
+        }
       }
       // 강세 FVG
       if (n.low > p.high) {
         const mid = (n.low+p.high)/2;
-        const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
-        htf4HLines.push(l);
+        if (inRange(mid)) {
+          const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
+          htf4HLines.push(l);
+        }
       }
       // 약세 FVG
       if (n.high < p.low) {
         const mid = (n.high+p.low)/2;
-        const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
-        htf4HLines.push(l);
+        if (inRange(mid)) {
+          const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
+          htf4HLines.push(l);
+        }
       }
     }
   } catch(e) { console.warn('4H error:', e); }
