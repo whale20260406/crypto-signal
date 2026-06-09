@@ -373,7 +373,7 @@ function initChart() {
     layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#1e1e2e' },
+    rightPriceScale: { borderColor: '#1e1e2e', autoScale: true },
     timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul' },
     handleScroll: true,
     handleScale: true,
@@ -435,6 +435,7 @@ async function loadChart() {
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
+  chart.timeScale().fitContent();
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
