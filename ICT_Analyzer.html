@@ -435,10 +435,10 @@ async function loadChart() {
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
-  chart.timeScale().fitContent();
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
+  chart.timeScale().fitContent();
   connectWS();
 }
 
@@ -748,13 +748,12 @@ function changeSymbol(sym, btn) {
   loadChart();
 }
 
-function changeTF(tf, btn) {
+async function changeTF(tf, btn) {
   document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentTF = tf;
-  loadChart().then(() => {
-    chart.timeScale().fitContent();
-  });
+  await loadChart();
+  chart.timeScale().fitContent();
 }
 
 function toggleHTF() {
