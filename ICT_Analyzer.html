@@ -752,7 +752,9 @@ function changeTF(tf, btn) {
   document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentTF = tf;
-  loadChart();
+  loadChart().then(() => {
+    chart.timeScale().fitContent();
+  });
 }
 
 function toggleHTF() {
