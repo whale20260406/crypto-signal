@@ -453,12 +453,12 @@ function clearMain() {
     if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
   });
   fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; kzSeries=[];
-  liqLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  liqLines.forEach(l => { try{chart.removeSeries(l);}catch(e){} });
   liqLines=[];
 }
 
 function clearHTF() {
-  htf4HLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  htf4HLines.forEach(l => { try{chart.removeSeries(l);}catch(e){} });
   htf4HLines=[];
 }
 
@@ -469,13 +469,19 @@ function clearAll() {
 
 // ─── PRICE LINE HELPER ────────────────────────────────────
 function addPriceLine(price, color, width, style, label, labelVis=true) {
-  return candleSeries.createPriceLine({
-    price, color,
-    lineWidth: width,
-    lineStyle: style,
-    axisLabelVisible: labelVis,
+  const lastTime = candles.length ? candles[candles.length-1].time : Math.floor(Date.now()/1000);
+  const startTime = candles.length ? candles[0].time : lastTime - 86400*30;
+  const extTime = lastTime + 86400*7;
+  const series = chart.addLineSeries({
+    color, lineWidth: width, lineStyle: style,
+    lastValueVisible: labelVis,
+    priceLineVisible: false,
+    crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
     title: label,
   });
+  series.setData([{time: startTime, value: price},{time: extTime, value: price}]);
+  return series;
 }
 
 // ─── BOX HELPER ───────────────────────────────────────────
@@ -484,6 +490,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
   });
   topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
 
@@ -491,6 +498,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
@@ -506,25 +514,7 @@ function analyzeAndDraw(data) {
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
-  // ── 킬존 ──────────────────────────────────────────────
-  if (layers.kz) {
-    const kzDefs = [
-      { label:'런던', startH:16, endH:19, color:'rgba(255,120,0,0.08)', lc:'#ff7800' },
-      { label:'뉴욕',  startH:22, endH:25, color:'rgba(255,200,0,0.08)', lc:'#ffc800' },
-    ];
-    data.slice(-20).forEach(c => {
-      const d = new Date(c.time*1000);
-      const h = (d.getUTCHours() + 9) % 24;
-      kzDefs.forEach(kz => {
-        const sh = kz.startH % 24, eh = kz.endH % 24;
-        const inKZ = sh < eh ? (h >= sh && h < eh) : (h >= sh || h < eh);
-        if (inKZ) {
-          const s = addBox(c.time, c.time+3600, c.low*0.9995, c.high*1.0005, kz.color, kz.lc, 1);
-          kzSeries.push(s);
-        }
-      });
-    });
-  }
+  // 킬존 비활성화
 
   // ── FVG ───────────────────────────────────────────────
   const fvgBull=[], fvgBear=[];
@@ -575,7 +565,7 @@ function analyzeAndDraw(data) {
 
   // ── 유동성 ────────────────────────────────────────────
   const lastPrice = data[data.length-1].close;
-  const liqBand = lastPrice * 0.03;
+  const liqBand = lastPrice * 0.015;
   const lows=[...data].filter(c=>Math.abs(c.low-lastPrice)<=liqBand).sort((a,b)=>a.low-b.low).slice(0,3);
   const highs=[...data].filter(c=>Math.abs(c.high-lastPrice)<=liqBand).sort((a,b)=>b.high-a.high).slice(0,3);
 
