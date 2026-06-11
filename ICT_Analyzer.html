@@ -438,7 +438,16 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  chart.timeScale().fitContent();
+  // 최근 100개 캔들만 보이도록
+  const visible = candles.slice(-100);
+  if (visible.length >= 2) {
+    chart.timeScale().setVisibleRange({
+      from: visible[0].time,
+      to: visible[visible.length-1].time,
+    });
+  } else {
+    chart.timeScale().fitContent();
+  }
   connectWS();
 }
 
