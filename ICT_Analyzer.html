@@ -373,7 +373,7 @@ function initChart() {
     layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#1e1e2e', autoScale: true },
+    rightPriceScale: { borderColor: '#1e1e2e' },
     timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul' },
     handleScroll: true,
     handleScale: true,
@@ -438,15 +438,12 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  // 최근 100개 캔들만 보이도록
-  const visible = candles.slice(-100);
+  // 타임프레임별 적정 캔들 수만 보이도록
+  const tfView = { '1m':120, '5m':100, '15m':80, '1h':60, '4h':60, '1d':60 };
+  const viewCount = tfView[currentTF] || 60;
+  const visible = candles.slice(-viewCount);
   if (visible.length >= 2) {
-    chart.timeScale().setVisibleRange({
-      from: visible[0].time,
-      to: visible[visible.length-1].time,
-    });
-  } else {
-    chart.timeScale().fitContent();
+    chart.timeScale().setVisibleRange({ from: visible[0].time, to: visible[visible.length-1].time });
   }
   connectWS();
 }
@@ -462,12 +459,12 @@ function clearMain() {
     if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
   });
   fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; kzSeries=[];
-  liqLines.forEach(l => { try{chart.removeSeries(l);}catch(e){} });
+  liqLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
   liqLines=[];
 }
 
 function clearHTF() {
-  htf4HLines.forEach(l => { try{chart.removeSeries(l);}catch(e){} });
+  htf4HLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
   htf4HLines=[];
 }
 
@@ -478,19 +475,13 @@ function clearAll() {
 
 // ─── PRICE LINE HELPER ────────────────────────────────────
 function addPriceLine(price, color, width, style, label, labelVis=true) {
-  const lastTime = candles.length ? candles[candles.length-1].time : Math.floor(Date.now()/1000);
-  const startTime = candles.length ? candles[0].time : lastTime - 86400*30;
-  const extTime = lastTime + 86400*7;
-  const series = chart.addLineSeries({
-    color, lineWidth: width, lineStyle: style,
-    lastValueVisible: labelVis,
-    priceLineVisible: false,
-    crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => null,
+  return candleSeries.createPriceLine({
+    price, color,
+    lineWidth: width,
+    lineStyle: style,
+    axisLabelVisible: labelVis,
     title: label,
   });
-  series.setData([{time: startTime, value: price},{time: extTime, value: price}]);
-  return series;
 }
 
 // ─── BOX HELPER ───────────────────────────────────────────
@@ -499,7 +490,6 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => null,
   });
   topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
 
@@ -507,7 +497,6 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => null,
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
@@ -523,7 +512,25 @@ function analyzeAndDraw(data) {
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
-  // 킬존 비활성화
+  // ── 킬존 ──────────────────────────────────────────────
+  if (layers.kz) {
+    const kzDefs = [
+      { label:'런던', startH:16, endH:19, color:'rgba(255,120,0,0.08)', lc:'#ff7800' },
+      { label:'뉴욕',  startH:22, endH:25, color:'rgba(255,200,0,0.08)', lc:'#ffc800' },
+    ];
+    data.forEach(c => {
+      const d = new Date(c.time*1000);
+      const h = (d.getUTCHours() + 9) % 24;
+      kzDefs.forEach(kz => {
+        const sh = kz.startH % 24, eh = kz.endH % 24;
+        const inKZ = sh < eh ? (h >= sh && h < eh) : (h >= sh || h < eh);
+        if (inKZ) {
+          const s = addBox(c.time, c.time+3600, c.low*0.9995, c.high*1.0005, kz.color, kz.lc, 1);
+          kzSeries.push(s);
+        }
+      });
+    });
+  }
 
   // ── FVG ───────────────────────────────────────────────
   const fvgBull=[], fvgBear=[];
@@ -573,10 +580,8 @@ function analyzeAndDraw(data) {
   }
 
   // ── 유동성 ────────────────────────────────────────────
-  const lastPrice = data[data.length-1].close;
-  const liqBand = lastPrice * 0.015;
-  const lows=[...data].filter(c=>Math.abs(c.low-lastPrice)<=liqBand).sort((a,b)=>a.low-b.low).slice(0,3);
-  const highs=[...data].filter(c=>Math.abs(c.high-lastPrice)<=liqBand).sort((a,b)=>b.high-a.high).slice(0,3);
+  const lows=[...data].sort((a,b)=>a.low-b.low).slice(0,3);
+  const highs=[...data].sort((a,b)=>b.high-a.high).slice(0,3);
 
   if (layers.liq) {
     highs.forEach(c => {
@@ -666,44 +671,33 @@ async function draw4H() {
 
     const recent = htfData.slice(-20);
     const D = LightweightCharts.LineStyle.Dashed;
-    const currentPrice = candles.length ? candles[candles.length-1].close : null;
-    const priceBand = currentPrice ? currentPrice * 0.05 : Infinity;
-    const inRange = (price) => currentPrice ? Math.abs(price - currentPrice) <= priceBand : true;
 
     for (let i=1; i<recent.length-1; i++) {
       const p=recent[i-1], c=recent[i], n=recent[i+1];
 
       // 강세 OB
       if (c.close<c.open && n.close>n.open && n.close>c.high) {
-        if (inRange(c.high) || inRange(c.low)) {
-          const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
-          const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
-          htf4HLines.push(lH, lL);
-        }
+        const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
+        const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
+        htf4HLines.push(lH, lL);
       }
       // 약세 OB
       if (c.close>c.open && n.close<n.open && n.close<c.low) {
-        if (inRange(c.high) || inRange(c.low)) {
-          const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
-          const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
-          htf4HLines.push(lH, lL);
-        }
+        const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
+        const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
+        htf4HLines.push(lH, lL);
       }
       // 강세 FVG
       if (n.low > p.high) {
         const mid = (n.low+p.high)/2;
-        if (inRange(mid)) {
-          const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
-          htf4HLines.push(l);
-        }
+        const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
+        htf4HLines.push(l);
       }
       // 약세 FVG
       if (n.high < p.low) {
         const mid = (n.high+p.low)/2;
-        if (inRange(mid)) {
-          const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
-          htf4HLines.push(l);
-        }
+        const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
+        htf4HLines.push(l);
       }
     }
   } catch(e) { console.warn('4H error:', e); }
@@ -757,12 +751,11 @@ function changeSymbol(sym, btn) {
   loadChart();
 }
 
-async function changeTF(tf, btn) {
+function changeTF(tf, btn) {
   document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentTF = tf;
-  await loadChart();
-  chart.timeScale().fitContent();
+  loadChart();
 }
 
 function toggleHTF() {
