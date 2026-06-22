@@ -355,8 +355,8 @@ let ws = null;
 let candles = [];
 let htfOn = true;
 let openPrice = null;
-let userRange = null;       // 사용자가 조작한 range 저장
-let rangeSetByCode = false; // 코드에서 setVisibleRange 호출 중 플래그
+let userRange = null;
+let rangeSetByCode = false;
 
 let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true };
 
@@ -458,7 +458,7 @@ async function loadChart() {
   const viewCount = tfView[currentTF] || 60;
   const visible = candles.slice(-viewCount);
   if (visible.length >= 2) {
-    userRange = null; // TF 변경 시 사용자 range 초기화
+    userRange = null;
     setRange({ from: visible[0].time, to: visible[visible.length-1].time });
   }
   connectWS();
