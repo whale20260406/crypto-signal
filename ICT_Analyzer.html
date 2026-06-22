@@ -359,6 +359,8 @@ let ws = null;
 let candles = [];
 let htfOn = true;
 let openPrice = null;
+let userRange = null;       // 사용자가 조작한 range 저장
+let rangeSetByCode = false; // 코드에서 setVisibleRange 호출 중 플래그
 
 let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true };
 
@@ -392,6 +394,23 @@ function initChart() {
     document.getElementById('chart').clientWidth,
     document.getElementById('chart').clientHeight
   ));
+
+  // 사용자 조작으로 range 변경 시 저장 (코드 호출은 무시)
+  chart.timeScale().subscribeVisibleTimeRangeChange(range => {
+    if (!rangeSetByCode) userRange = range;
+  });
+}
+
+// ─── RANGE HELPER ─────────────────────────────────────────
+function setRange(range) {
+  if (!range) return;
+  rangeSetByCode = true;
+  try { chart.timeScale().setVisibleRange(range); } catch(e) {}
+  setTimeout(() => { rangeSetByCode = false; }, 100);
+}
+
+function restoreUserRange() {
+  if (userRange) setRange(userRange);
 }
 
 // ─── DATA ─────────────────────────────────────────────────
@@ -443,7 +462,8 @@ async function loadChart() {
   const viewCount = tfView[currentTF] || 60;
   const visible = candles.slice(-viewCount);
   if (visible.length >= 2) {
-    chart.timeScale().setVisibleRange({ from: visible[0].time, to: visible[visible.length-1].time });
+    userRange = null; // TF 변경 시 사용자 range 초기화
+    setRange({ from: visible[0].time, to: visible[visible.length-1].time });
   }
   connectWS();
 }
@@ -486,9 +506,6 @@ function addPriceLine(price, color, width, style, label, labelVis=true) {
 
 // ─── BOX HELPER ───────────────────────────────────────────
 function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
-  let savedRange = null;
-  try { savedRange = chart.timeScale().getVisibleRange(); } catch(e) {}
-
   const topLine = chart.addLineSeries({
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
@@ -505,16 +522,13 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
-  if (savedRange) {
-    try { chart.timeScale().setVisibleRange(savedRange); } catch(e) {}
-  }
+  restoreUserRange();
 
   return { top: topLine, bot: botLine };
 }
 
 // ─── ICT ANALYSIS ─────────────────────────────────────────
 function analyzeAndDraw(data) {
-  const savedRange = (() => { try { return chart.timeScale().getVisibleRange(); } catch(e) { return null; } })();
   clearMain();
   if (data.length < 5) return;
 
@@ -671,11 +685,7 @@ function analyzeAndDraw(data) {
   biasEl.textContent = biasText;
   biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
 
-  if (savedRange) {
-    requestAnimationFrame(() => {
-      try { chart.timeScale().setVisibleRange(savedRange); } catch(e) {}
-    });
-  }
+  setTimeout(restoreUserRange, 50);
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
