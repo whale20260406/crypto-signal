@@ -659,7 +659,9 @@ function analyzeAndDraw(data) {
   biasEl.textContent = biasText;
   biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
 
-  setTimeout(restoreUserRange, 50);
+  if (userRange) {
+    try { chart.timeScale().setVisibleRange(userRange); } catch(e) {}
+  }
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
@@ -718,6 +720,12 @@ function connectWS() {
       close:parseFloat(d.c),
     };
     candleSeries.update(candle);
+    // update()가 자동 스크롤하므로 즉시 range 복원
+    if (userRange) {
+      rangeSetByCode = true;
+      try { chart.timeScale().setVisibleRange(userRange); } catch(e) {}
+      setTimeout(() => { rangeSetByCode = false; }, 100);
+    }
     updatePrice(candle);
     if (d.x) {
       candles.push(candle);
