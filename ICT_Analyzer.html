@@ -302,10 +302,6 @@
     <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
     <span class="leg-label">유동성</span>
   </div>
-  <div class="leg-item" id="leg-kz" onclick="toggleLayer('kz')">
-    <div class="leg-box" style="background:linear-gradient(90deg,rgba(255,120,0,0.5) 50%,rgba(255,200,0,0.5) 50%);border:1px solid #888"></div>
-    <span class="leg-label">킬존</span>
-  </div>
   <div class="leg-item" id="leg-htf" onclick="toggleHTF()">
     <div class="leg-box" style="background:rgba(255,255,255,0.1);border:2px dashed #aaa"></div>
     <span class="leg-label">4H구간</span>
@@ -362,10 +358,10 @@ let openPrice = null;
 let userRange = null;       // 사용자가 조작한 range 저장
 let rangeSetByCode = false; // 코드에서 setVisibleRange 호출 중 플래그
 
-let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, kz: true };
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true };
 
 // overlay storage
-let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], kzSeries=[], liqLines=[];
+let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], liqLines=[];
 // 4H overlay (priceLine 기반)
 let htf4HLines = [];
 
@@ -474,11 +470,11 @@ function isLTF() {
 
 // ─── CLEAR ────────────────────────────────────────────────
 function clearMain() {
-  [...fvgBullSeries,...fvgBearSeries,...obBullSeries,...obBearSeries,...kzSeries].forEach(s => {
+  [...fvgBullSeries,...fvgBearSeries,...obBullSeries,...obBearSeries].forEach(s => {
     if (s&&s.top) { try{chart.removeSeries(s.top);}catch(e){} }
     if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
   });
-  fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; kzSeries=[];
+  fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[];
   liqLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
   liqLines=[];
 }
@@ -522,8 +518,6 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
-  restoreUserRange();
-
   return { top: topLine, bot: botLine };
 }
 
@@ -535,26 +529,6 @@ function analyzeAndDraw(data) {
   const lastTime = data[data.length-1].time + 86400*7; // 7일 연장
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
-
-  // ── 킬존 ──────────────────────────────────────────────
-  if (layers.kz) {
-    const kzDefs = [
-      { label:'런던', startH:16, endH:19, color:'rgba(255,120,0,0.08)', lc:'#ff7800' },
-      { label:'뉴욕',  startH:22, endH:25, color:'rgba(255,200,0,0.08)', lc:'#ffc800' },
-    ];
-    data.forEach(c => {
-      const d = new Date(c.time*1000);
-      const h = (d.getUTCHours() + 9) % 24;
-      kzDefs.forEach(kz => {
-        const sh = kz.startH % 24, eh = kz.endH % 24;
-        const inKZ = sh < eh ? (h >= sh && h < eh) : (h >= sh || h < eh);
-        if (inKZ) {
-          const s = addBox(c.time, c.time+3600, c.low*0.9995, c.high*1.0005, kz.color, kz.lc, 1);
-          kzSeries.push(s);
-        }
-      });
-    });
-  }
 
   // ── FVG ───────────────────────────────────────────────
   const fvgBull=[], fvgBear=[];
@@ -798,7 +772,7 @@ function toggleLayer(name) {
   const legMap = {
     fvgBull:'leg-fvg-bull', fvgBear:'leg-fvg-bear',
     obBull:'leg-ob-bull', obBear:'leg-ob-bear',
-    liq:'leg-liq', kz:'leg-kz',
+    liq:'leg-liq',
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
