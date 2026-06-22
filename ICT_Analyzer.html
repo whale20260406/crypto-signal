@@ -505,6 +505,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
 
 // ─── ICT ANALYSIS ─────────────────────────────────────────
 function analyzeAndDraw(data) {
+  const savedRange = (() => { try { return chart.timeScale().getVisibleRange(); } catch(e) { return null; } })();
   clearMain();
   if (data.length < 5) return;
 
@@ -660,6 +661,12 @@ function analyzeAndDraw(data) {
   const biasText = bias==='상승'?'매수':bias==='하락'?'매도':'중립';
   biasEl.textContent = biasText;
   biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+
+  if (savedRange) {
+    requestAnimationFrame(() => {
+      try { chart.timeScale().setVisibleRange(savedRange); } catch(e) {}
+    });
+  }
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
