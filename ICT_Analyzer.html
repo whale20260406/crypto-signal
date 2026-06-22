@@ -355,8 +355,8 @@ let ws = null;
 let candles = [];
 let htfOn = true;
 let openPrice = null;
-let userRange = null;
-let rangeSetByCode = false;
+let userScrollPos = null;  // 사용자 스크롤 위치 (픽셀)
+let isUserScrolled = false; // 사용자가 스크롤 했는지
 
 let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true };
 
@@ -391,22 +391,26 @@ function initChart() {
     document.getElementById('chart').clientHeight
   ));
 
-  // 사용자 조작으로 range 변경 시 저장 (코드 호출은 무시)
-  chart.timeScale().subscribeVisibleTimeRangeChange(range => {
-    if (!rangeSetByCode) userRange = range;
+  // 사용자가 차트 건드리면 위치 저장
+  chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    if (!_codeUpdating) {
+      userScrollPos = chart.timeScale().scrollPosition();
+      isUserScrolled = true;
+    }
   });
 }
 
-// ─── RANGE HELPER ─────────────────────────────────────────
-function setRange(range) {
-  if (!range) return;
-  rangeSetByCode = true;
-  try { chart.timeScale().setVisibleRange(range); } catch(e) {}
-  setTimeout(() => { rangeSetByCode = false; }, 100);
-}
+let _codeUpdating = false;
 
-function restoreUserRange() {
-  if (userRange) setRange(userRange);
+// ─── SCROLL RESTORE ───────────────────────────────────────
+function saveAndRestore(fn) {
+  const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
+  _codeUpdating = true;
+  fn();
+  if (pos !== null) {
+    chart.timeScale().scrollToPosition(pos, false);
+  }
+  setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
 // ─── DATA ─────────────────────────────────────────────────
@@ -453,14 +457,9 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  // 타임프레임별 적정 캔들 수만 보이도록
-  const tfView = { '1m':120, '5m':100, '15m':80, '1h':60, '4h':60, '1d':60 };
-  const viewCount = tfView[currentTF] || 60;
-  const visible = candles.slice(-viewCount);
-  if (visible.length >= 2) {
-    userRange = null;
-    setRange({ from: visible[0].time, to: visible[visible.length-1].time });
-  }
+  // TF 변경시 스크롤 리셋
+  userScrollPos = null;
+  isUserScrolled = false;
   connectWS();
 }
 
@@ -658,10 +657,6 @@ function analyzeAndDraw(data) {
   const biasText = bias==='상승'?'매수':bias==='하락'?'매도':'중립';
   biasEl.textContent = biasText;
   biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
-
-  if (userRange) {
-    try { chart.timeScale().setVisibleRange(userRange); } catch(e) {}
-  }
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
@@ -719,19 +714,17 @@ function connectWS() {
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
     };
+    const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
+    _codeUpdating = true;
     candleSeries.update(candle);
-    // update()가 자동 스크롤하므로 즉시 range 복원
-    if (userRange) {
-      rangeSetByCode = true;
-      try { chart.timeScale().setVisibleRange(userRange); } catch(e) {}
-      setTimeout(() => { rangeSetByCode = false; }, 100);
-    }
+    if (pos !== null) chart.timeScale().scrollToPosition(pos, false);
+    _codeUpdating = false;
     updatePrice(candle);
     if (d.x) {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
-      analyzeAndDraw(candles);
-      if (isLTF() && htfOn) await draw4H();
+      saveAndRestore(() => analyzeAndDraw(candles));
+      if (isLTF() && htfOn) saveAndRestore(() => draw4H());
     }
   };
 }
@@ -771,7 +764,7 @@ function toggleHTF() {
   htfOn = !htfOn;
   const el = document.getElementById('leg-htf');
   if (el) el.classList.toggle('off', !htfOn);
-  if (htfOn && isLTF()) draw4H();
+  if (htfOn && isLTF()) saveAndRestore(() => draw4H());
   else clearHTF();
 }
 
@@ -784,7 +777,7 @@ function toggleLayer(name) {
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
-  analyzeAndDraw(candles);
+  saveAndRestore(() => analyzeAndDraw(candles));
   if (htfOn && isLTF()) draw4H();
 }
 
