@@ -457,11 +457,10 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  // TF 변경시 최근 캔들로 이동
   userScrollPos = null;
   isUserScrolled = false;
   _codeUpdating = true;
-  chart.timeScale().scrollToRealTime();
+  chart.timeScale().fitContent();
   setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
