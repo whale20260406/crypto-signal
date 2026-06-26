@@ -720,8 +720,10 @@ function connectWS() {
     if (d.x) {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
-      saveAndRestore(() => analyzeAndDraw(candles));
-      if (isLTF() && htfOn) saveAndRestore(() => draw4H());
+      const _pos = chart.timeScale().scrollPosition();
+      analyzeAndDraw(candles);
+      if (isLTF() && htfOn) draw4H();
+      chart.timeScale().scrollToPosition(_pos, false);
     }
   };
 }
