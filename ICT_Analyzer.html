@@ -394,7 +394,7 @@ function initChart() {
   // 사용자가 차트 건드리면 위치 저장
   chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
     if (!_codeUpdating) {
-      userScrollPos = chart.timeScale().scrollPosition();
+      userScrollPos = chart.timeScale().getVisibleLogicalRange();
       isUserScrolled = true;
     }
   });
@@ -404,11 +404,11 @@ let _codeUpdating = false;
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
-  const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
+  const range = isUserScrolled ? chart.timeScale().getVisibleLogicalRange() : null;
   _codeUpdating = true;
   fn();
-  if (pos !== null) {
-    chart.timeScale().scrollToPosition(pos, false);
+  if (range !== null) {
+    chart.timeScale().setVisibleLogicalRange(range);
   }
   setTimeout(() => { _codeUpdating = false; }, 50);
 }
@@ -426,7 +426,7 @@ async function fetchCandles(symbol, tf) {
     if (!res.ok) throw new Error();
     const data = await res.json();
     return data.map(k => ({
-      time: k[0]/1000 + 9*3600,
+      time: k[0]/1000,
       open: parseFloat(k[1]),
       high: parseFloat(k[2]),
       low:  parseFloat(k[3]),
@@ -437,7 +437,7 @@ async function fetchCandles(symbol, tf) {
       let res = await fetch(proxy);
       const data = await res.json();
       return data.map(k => ({
-        time: k[0]/1000 + 9*3600,
+        time: k[0]/1000,
         open: parseFloat(k[1]),
         high: parseFloat(k[2]),
         low:  parseFloat(k[3]),
@@ -705,7 +705,7 @@ function connectWS() {
   ws.onmessage = async (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
-      time: d.t/1000 + 9*3600,
+      time: d.t/1000,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
@@ -720,10 +720,10 @@ function connectWS() {
     if (d.x) {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
-      const _pos = chart.timeScale().scrollPosition();
+      const _range = chart.timeScale().getVisibleLogicalRange();
       analyzeAndDraw(candles);
       if (isLTF() && htfOn) draw4H();
-      chart.timeScale().scrollToPosition(_pos, false);
+      if (_range) chart.timeScale().setVisibleLogicalRange(_range);
     }
   };
 }
