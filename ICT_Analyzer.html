@@ -457,11 +457,6 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  userScrollPos = null;
-  isUserScrolled = false;
-  _codeUpdating = true;
-  chart.timeScale().fitContent();
-  setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
 
