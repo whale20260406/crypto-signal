@@ -269,8 +269,6 @@
     <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
   </div>
   <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
-  <div id="kzBadge" class="kz-badge"></div>
-  <div id="amdBadge" class="amd-badge"></div>
   <div class="tf-btns">
     <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
     <button class="tf-btn" onclick="changeTF('5m',this)">5m</button>
@@ -353,7 +351,7 @@ let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
-let htfOn = true;
+let htfOn = false;
 let openPrice = null;
 let userScrollPos = null;  // 사용자 스크롤 위치 (픽셀)
 let isUserScrolled = false; // 사용자가 스크롤 했는지
@@ -372,7 +370,7 @@ function initChart() {
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false },
+    timeScale: { borderColor: '#1e1e2e', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: true, fixLeftEdge: false, fixRightEdge: false },
     handleScroll: true,
     handleScale: true,
   });
@@ -394,7 +392,7 @@ function initChart() {
   // 사용자가 차트 건드리면 위치 저장
   chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
     if (!_codeUpdating) {
-      userScrollPos = chart.timeScale().scrollPosition();
+      userScrollPos = chart.timeScale().getVisibleLogicalRange();
       isUserScrolled = true;
     }
   });
@@ -404,12 +402,8 @@ let _codeUpdating = false;
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
-  const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
   _codeUpdating = true;
   fn();
-  if (pos !== null) {
-    chart.timeScale().scrollToPosition(pos, false);
-  }
   setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
@@ -457,9 +451,11 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
-  // TF 변경시 스크롤 리셋
   userScrollPos = null;
   isUserScrolled = false;
+  _codeUpdating = true;
+  chart.timeScale().fitContent();
+  setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
 
@@ -505,7 +501,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: low, maxValue: high } }),
+    autoscaleInfoProvider: () => null,
   });
   topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
 
@@ -513,7 +509,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: low, maxValue: high } }),
+    autoscaleInfoProvider: () => null,
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
@@ -610,22 +606,26 @@ function analyzeAndDraw(data) {
 
   // 킬존 배지
   const kzBadge = document.getElementById('kzBadge');
-  kzBadge.className = 'kz-badge';
-  kzBadge.textContent = '';
-  if (nowKST>=16&&nowKST<19) {
-    kzBadge.classList.add('show','london');
-    kzBadge.textContent='🇬🇧 런던 킬존';
-  } else if (nowKST>=22||nowKST<1) {
-    kzBadge.classList.add('show','ny');
-    kzBadge.textContent='🇺🇸 뉴욕 킬존';
+  if (kzBadge) {
+    kzBadge.className = 'kz-badge';
+    kzBadge.textContent = '';
+    if (nowKST>=16&&nowKST<19) {
+      kzBadge.classList.add('show','london');
+      kzBadge.textContent='🇬🇧 런던 킬존';
+    } else if (nowKST>=22||nowKST<1) {
+      kzBadge.classList.add('show','ny');
+      kzBadge.textContent='🇺🇸 뉴욕 킬존';
+    }
   }
 
   // AMD 배지
   const amdBadge = document.getElementById('amdBadge');
-  amdBadge.className = 'amd-badge';
-  if (amd!=='-') {
-    amdBadge.classList.add('show');
-    amdBadge.textContent = amd;
+  if (amdBadge) {
+    amdBadge.className = 'amd-badge';
+    if (amd!=='-') {
+      amdBadge.classList.add('show');
+      amdBadge.textContent = amd;
+    }
   }
 
   // 신호
@@ -702,31 +702,58 @@ async function draw4H() {
 
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
-  if (ws) ws.close();
+  if (ws) { try { ws.close(); } catch(e){} }
   const sym = currentSymbol.toLowerCase();
+  // Binance WS
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onmessage = async (e) => {
+  ws.onopen = () => console.log('WS connected');
+  ws.onerror = () => {
+    console.warn('Binance WS failed, using poll');
+    ws = null;
+    startPoll();
+  };
+  ws.onclose = () => {
+    if (ws) setTimeout(connectWS, 3000);
+  };
+  ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
-    const candle = {
+    handleCandle({
       time: d.t/1000 + 9*3600,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
-    };
-    const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
-    _codeUpdating = true;
-    candleSeries.update(candle);
-    if (pos !== null) chart.timeScale().scrollToPosition(pos, false);
-    _codeUpdating = false;
-    updatePrice(candle);
-    if (d.x) {
-      candles.push(candle);
+    }, d.x);
+  };
+}
+
+let pollTimer = null;
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const data = await fetchCandles(currentSymbol, currentTF);
+    if (!data.length) return;
+    const last = data[data.length-1];
+    handleCandle(last, false);
+    if (candles.length && last.time > candles[candles.length-1].time) {
+      candles.push(last);
       if (candles.length > 300) candles.shift();
       saveAndRestore(() => analyzeAndDraw(candles));
-      if (isLTF() && htfOn) saveAndRestore(() => draw4H());
     }
-  };
+  }, 3000);
+}
+
+function handleCandle(candle, isClosed) {
+  _codeUpdating = true;
+  candleSeries.update(candle);
+  _codeUpdating = false;
+  updatePrice(candle);
+  if (isClosed) {
+    candles.push(candle);
+    if (candles.length > 300) candles.shift();
+    saveAndRestore(() => analyzeAndDraw(candles));
+    if (isLTF() && htfOn) saveAndRestore(() => draw4H());
+  }
 }
 
 // ─── PRICE DISPLAY ────────────────────────────────────────
