@@ -300,10 +300,7 @@
     <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
     <span class="leg-label">유동성</span>
   </div>
-  <div class="leg-item" id="leg-htf" onclick="toggleHTF()">
-    <div class="leg-box" style="background:rgba(255,255,255,0.1);border:2px dashed #aaa"></div>
-    <span class="leg-label">4H구간</span>
-  </div>
+
   <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
     <span class="status-dot"></span>LIVE
   </div>
@@ -370,7 +367,7 @@ function initChart() {
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: true, fixLeftEdge: false, fixRightEdge: false },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: true, fixLeftEdge: false, fixRightEdge: false },
     handleScroll: true,
     handleScale: true,
   });
@@ -450,7 +447,6 @@ async function loadChart() {
   candleSeries.setData(candles);
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
-  if (isLTF()) await draw4H();
   userScrollPos = null;
   isUserScrolled = false;
   _codeUpdating = true;
@@ -752,7 +748,6 @@ function handleCandle(candle, isClosed) {
     candles.push(candle);
     if (candles.length > 300) candles.shift();
     saveAndRestore(() => analyzeAndDraw(candles));
-    if (isLTF() && htfOn) saveAndRestore(() => draw4H());
   }
 }
 
@@ -805,7 +800,6 @@ function toggleLayer(name) {
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
   saveAndRestore(() => analyzeAndDraw(candles));
-  if (htfOn && isLTF()) draw4H();
 }
 
 // ─── INIT ─────────────────────────────────────────────────
