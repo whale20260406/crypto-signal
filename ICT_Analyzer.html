@@ -269,8 +269,6 @@
     <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
   </div>
   <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
-  <div id="kzBadge" class="kz-badge"></div>
-  <div id="amdBadge" class="amd-badge"></div>
   <div class="tf-btns">
     <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
     <button class="tf-btn" onclick="changeTF('5m',this)">5m</button>
@@ -372,7 +370,7 @@ function initChart() {
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
     handleScroll: true,
     handleScale: true,
   });
@@ -457,6 +455,11 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   if (isLTF()) await draw4H();
+  userScrollPos = null;
+  isUserScrolled = false;
+  _codeUpdating = true;
+  chart.timeScale().fitContent();
+  setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
 
@@ -711,19 +714,17 @@ function connectWS() {
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
     };
-    const pos = isUserScrolled ? chart.timeScale().scrollPosition() : null;
+    const pos = isUserScrolled ? chart.timeScale().getVisibleLogicalRange() : null;
     _codeUpdating = true;
     candleSeries.update(candle);
-    if (pos !== null) chart.timeScale().scrollToPosition(pos, false);
+    if (pos !== null) chart.timeScale().setVisibleLogicalRange(pos);
     _codeUpdating = false;
     updatePrice(candle);
     if (d.x) {
       candles.push(candle);
       if (candles.length > 300) candles.shift();
-      const _range = chart.timeScale().getVisibleLogicalRange();
-      analyzeAndDraw(candles);
-      if (isLTF() && htfOn) draw4H();
-      if (_range) chart.timeScale().setVisibleLogicalRange(_range);
+      saveAndRestore(() => analyzeAndDraw(candles));
+      if (isLTF() && htfOn) saveAndRestore(() => draw4H());
     }
   };
 }
