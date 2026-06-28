@@ -402,12 +402,8 @@ let _codeUpdating = false;
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
-  const range = isUserScrolled ? chart.timeScale().getVisibleLogicalRange() : null;
   _codeUpdating = true;
   fn();
-  if (range !== null) {
-    chart.timeScale().setVisibleLogicalRange(range);
-  }
   setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
@@ -720,10 +716,8 @@ function connectWS() {
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
     };
-    const pos = isUserScrolled ? chart.timeScale().getVisibleLogicalRange() : null;
     _codeUpdating = true;
     candleSeries.update(candle);
-    if (pos !== null) chart.timeScale().setVisibleLogicalRange(pos);
     _codeUpdating = false;
     updatePrice(candle);
     if (d.x) {
