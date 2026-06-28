@@ -351,7 +351,7 @@ let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
 let candles = [];
-let htfOn = true;
+let htfOn = false;
 let openPrice = null;
 let userScrollPos = null;  // 사용자 스크롤 위치 (픽셀)
 let isUserScrolled = false; // 사용자가 스크롤 했는지
@@ -702,9 +702,15 @@ async function draw4H() {
 
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
-  if (ws) ws.close();
+  if (ws) { try { ws.close(); } catch(e){} }
   const sym = currentSymbol.toLowerCase();
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
+  ws.onopen = () => console.log('WS connected:', sym, currentTF);
+  ws.onerror = (e) => console.warn('WS error:', e);
+  ws.onclose = () => {
+    console.warn('WS closed, reconnecting...');
+    setTimeout(() => { if (ws && ws.readyState !== WebSocket.OPEN) connectWS(); }, 3000);
+  };
   ws.onmessage = async (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
