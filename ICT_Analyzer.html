@@ -420,7 +420,7 @@ async function fetchCandles(symbol, tf) {
     if (!res.ok) throw new Error();
     const data = await res.json();
     return data.map(k => ({
-      time: k[0]/1000 + 9*3600,
+      time: k[0]/1000,
       open: parseFloat(k[1]),
       high: parseFloat(k[2]),
       low:  parseFloat(k[3]),
@@ -431,7 +431,7 @@ async function fetchCandles(symbol, tf) {
       let res = await fetch(proxy);
       const data = await res.json();
       return data.map(k => ({
-        time: k[0]/1000 + 9*3600,
+        time: k[0]/1000,
         open: parseFloat(k[1]),
         high: parseFloat(k[2]),
         low:  parseFloat(k[3]),
@@ -718,7 +718,7 @@ function connectWS() {
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
     handleCandle({
-      time: d.t/1000 + 9*3600,
+      time: d.t/1000,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
