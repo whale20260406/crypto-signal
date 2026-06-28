@@ -370,7 +370,7 @@ function initChart() {
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
+    timeScale: { borderColor: '#1e1e2e', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
     handleScroll: true,
     handleScale: true,
   });
@@ -424,7 +424,7 @@ async function fetchCandles(symbol, tf) {
     if (!res.ok) throw new Error();
     const data = await res.json();
     return data.map(k => ({
-      time: k[0]/1000,
+      time: k[0]/1000 + 9*3600,
       open: parseFloat(k[1]),
       high: parseFloat(k[2]),
       low:  parseFloat(k[3]),
@@ -435,7 +435,7 @@ async function fetchCandles(symbol, tf) {
       let res = await fetch(proxy);
       const data = await res.json();
       return data.map(k => ({
-        time: k[0]/1000,
+        time: k[0]/1000 + 9*3600,
         open: parseFloat(k[1]),
         high: parseFloat(k[2]),
         low:  parseFloat(k[3]),
@@ -714,7 +714,7 @@ function connectWS() {
   ws.onmessage = async (e) => {
     const d = JSON.parse(e.data).k;
     const candle = {
-      time: d.t/1000,
+      time: d.t/1000 + 9*3600,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
