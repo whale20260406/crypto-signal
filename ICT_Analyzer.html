@@ -606,22 +606,26 @@ function analyzeAndDraw(data) {
 
   // 킬존 배지
   const kzBadge = document.getElementById('kzBadge');
-  kzBadge.className = 'kz-badge';
-  kzBadge.textContent = '';
-  if (nowKST>=16&&nowKST<19) {
-    kzBadge.classList.add('show','london');
-    kzBadge.textContent='🇬🇧 런던 킬존';
-  } else if (nowKST>=22||nowKST<1) {
-    kzBadge.classList.add('show','ny');
-    kzBadge.textContent='🇺🇸 뉴욕 킬존';
+  if (kzBadge) {
+    kzBadge.className = 'kz-badge';
+    kzBadge.textContent = '';
+    if (nowKST>=16&&nowKST<19) {
+      kzBadge.classList.add('show','london');
+      kzBadge.textContent='🇬🇧 런던 킬존';
+    } else if (nowKST>=22||nowKST<1) {
+      kzBadge.classList.add('show','ny');
+      kzBadge.textContent='🇺🇸 뉴욕 킬존';
+    }
   }
 
   // AMD 배지
   const amdBadge = document.getElementById('amdBadge');
-  amdBadge.className = 'amd-badge';
-  if (amd!=='-') {
-    amdBadge.classList.add('show');
-    amdBadge.textContent = amd;
+  if (amdBadge) {
+    amdBadge.className = 'amd-badge';
+    if (amd!=='-') {
+      amdBadge.classList.add('show');
+      amdBadge.textContent = amd;
+    }
   }
 
   // 신호
@@ -700,33 +704,56 @@ async function draw4H() {
 function connectWS() {
   if (ws) { try { ws.close(); } catch(e){} }
   const sym = currentSymbol.toLowerCase();
+  // Binance WS
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onopen = () => console.log('WS connected:', sym, currentTF);
-  ws.onerror = (e) => console.warn('WS error:', e);
-  ws.onclose = () => {
-    console.warn('WS closed, reconnecting...');
-    setTimeout(() => { if (ws && ws.readyState !== WebSocket.OPEN) connectWS(); }, 3000);
+  ws.onopen = () => console.log('WS connected');
+  ws.onerror = () => {
+    console.warn('Binance WS failed, using poll');
+    ws = null;
+    startPoll();
   };
-  ws.onmessage = async (e) => {
+  ws.onclose = () => {
+    if (ws) setTimeout(connectWS, 3000);
+  };
+  ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
-    const candle = {
+    handleCandle({
       time: d.t/1000 + 9*3600,
       open: parseFloat(d.o),
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
-    };
-    _codeUpdating = true;
-    candleSeries.update(candle);
-    _codeUpdating = false;
-    updatePrice(candle);
-    if (d.x) {
-      candles.push(candle);
+    }, d.x);
+  };
+}
+
+let pollTimer = null;
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const data = await fetchCandles(currentSymbol, currentTF);
+    if (!data.length) return;
+    const last = data[data.length-1];
+    handleCandle(last, false);
+    if (candles.length && last.time > candles[candles.length-1].time) {
+      candles.push(last);
       if (candles.length > 300) candles.shift();
       saveAndRestore(() => analyzeAndDraw(candles));
-      if (isLTF() && htfOn) saveAndRestore(() => draw4H());
     }
-  };
+  }, 3000);
+}
+
+function handleCandle(candle, isClosed) {
+  _codeUpdating = true;
+  candleSeries.update(candle);
+  _codeUpdating = false;
+  updatePrice(candle);
+  if (isClosed) {
+    candles.push(candle);
+    if (candles.length > 300) candles.shift();
+    saveAndRestore(() => analyzeAndDraw(candles));
+    if (isLTF() && htfOn) saveAndRestore(() => draw4H());
+  }
 }
 
 // ─── PRICE DISPLAY ────────────────────────────────────────
