@@ -501,7 +501,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: low, maxValue: high } }),
+    autoscaleInfoProvider: () => null,
   });
   topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
 
@@ -509,7 +509,7 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
     color: lineColor, lineWidth: lw,
     lineStyle: LightweightCharts.LineStyle.Solid,
     lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: low, maxValue: high } }),
+    autoscaleInfoProvider: () => null,
   });
   botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
 
