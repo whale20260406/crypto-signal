@@ -367,7 +367,7 @@ function initChart() {
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 3, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 0, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
     handleScroll: true,
     handleScale: true,
   });
@@ -399,10 +399,8 @@ let _codeUpdating = false;
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
-  const range = chart.timeScale().getVisibleLogicalRange();
   _codeUpdating = true;
   fn();
-  if (range) chart.timeScale().setVisibleLogicalRange(range);
   setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
@@ -449,14 +447,6 @@ async function loadChart() {
   candleSeries.setData(candles);
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
-  userScrollPos = null;
-  isUserScrolled = false;
-  _codeUpdating = true;
-  chart.timeScale().setVisibleLogicalRange({
-    from: candles.length - 60,
-    to: candles.length + 3
-  });
-  setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
 
@@ -745,10 +735,8 @@ function startPoll() {
 }
 
 function handleCandle(candle, isClosed) {
-  const range = isUserScrolled ? chart.timeScale().getVisibleLogicalRange() : null;
   _codeUpdating = true;
   candleSeries.update(candle);
-  if (range) chart.timeScale().setVisibleLogicalRange(range);
   _codeUpdating = false;
   updatePrice(candle);
   if (isClosed) {
