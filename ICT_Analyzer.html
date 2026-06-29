@@ -450,7 +450,9 @@ async function loadChart() {
   userScrollPos = null;
   isUserScrolled = false;
   _codeUpdating = true;
-  chart.timeScale().fitContent();
+  const _spacing = chart.timeScale().options().barSpacing || 6;
+  chart.timeScale().applyOptions({ barSpacing: _spacing });
+  chart.timeScale().scrollToRealTime();
   setTimeout(() => { _codeUpdating = false; }, 100);
   connectWS();
 }
