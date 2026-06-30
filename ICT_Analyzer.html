@@ -694,17 +694,20 @@ async function draw4H() {
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
   if (ws) { try { ws.close(); } catch(e){} }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   const sym = currentSymbol.toLowerCase();
-  // Binance WS
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onopen = () => console.log('WS connected');
+  ws.onopen = () => { console.log('WS connected'); if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
   ws.onerror = () => {
     console.warn('Binance WS failed, using poll');
+    try { ws.close(); } catch(e){}
     ws = null;
     startPoll();
   };
   ws.onclose = () => {
-    if (ws) setTimeout(connectWS, 3000);
+    const wasWs = ws;
+    ws = null;
+    if (wasWs) setTimeout(connectWS, 3000);
   };
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
@@ -721,7 +724,9 @@ function connectWS() {
 let pollTimer = null;
 function startPoll() {
   if (pollTimer) clearInterval(pollTimer);
+  if (ws) return;
   pollTimer = setInterval(async () => {
+    if (ws) { clearInterval(pollTimer); pollTimer = null; return; }
     const data = await fetchCandles(currentSymbol, currentTF);
     if (!data.length) return;
     const last = data[data.length-1];
@@ -734,7 +739,13 @@ function startPoll() {
   }, 3000);
 }
 
+let _lastCandleTime = 0;
 function handleCandle(candle, isClosed) {
+  // 과거 시간 캔들이거나 비정상 데이터면 무시
+  if (candle.time < _lastCandleTime) return;
+  if (!candle.open || !candle.high || !candle.low || !candle.close) return;
+  if (candle.high < candle.low) return;
+  _lastCandleTime = candle.time;
   _codeUpdating = true;
   candleSeries.update(candle);
   _codeUpdating = false;
