@@ -694,20 +694,17 @@ async function draw4H() {
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
   if (ws) { try { ws.close(); } catch(e){} }
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   const sym = currentSymbol.toLowerCase();
+  // Binance WS
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onopen = () => { console.log('WS connected'); if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
+  ws.onopen = () => console.log('WS connected');
   ws.onerror = () => {
     console.warn('Binance WS failed, using poll');
-    try { ws.close(); } catch(e){}
     ws = null;
     startPoll();
   };
   ws.onclose = () => {
-    const wasWs = ws;
-    ws = null;
-    if (wasWs) setTimeout(connectWS, 3000);
+    if (ws) setTimeout(connectWS, 3000);
   };
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
@@ -724,9 +721,7 @@ function connectWS() {
 let pollTimer = null;
 function startPoll() {
   if (pollTimer) clearInterval(pollTimer);
-  if (ws) return;
   pollTimer = setInterval(async () => {
-    if (ws) { clearInterval(pollTimer); pollTimer = null; return; }
     const data = await fetchCandles(currentSymbol, currentTF);
     if (!data.length) return;
     const last = data[data.length-1];
