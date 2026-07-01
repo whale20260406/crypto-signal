@@ -440,9 +440,19 @@ async function fetchCandles(symbol, tf) {
 }
 
 // ─── LOAD CHART ───────────────────────────────────────────
+// 심볼/TF를 빠르게 연속으로 바꾸면 fetchCandles()가 여러 개 동시에 날아가고,
+// 먼저 시작했지만 나중에 응답이 오는 요청이 최신 차트를 오래된 데이터로 덮어써서
+// "가짜차트"가 잠깐 보이고, 그 뒤 실시간 캔들이 시간 역행 업데이트를 시도하면서
+// "Cannot update oldest data" 에러가 났었음. 요청마다 토큰을 발급해서
+// 가장 마지막에 시작한 요청의 결과만 반영하도록 막는다.
+let _loadToken = 0;
 async function loadChart() {
+  const myToken = ++_loadToken;
   clearAll();
-  candles = await fetchCandles(currentSymbol, currentTF);
+  const fetched = await fetchCandles(currentSymbol, currentTF);
+  // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
+  if (myToken !== _loadToken) return;
+  candles = fetched;
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
