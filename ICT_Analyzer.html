@@ -693,22 +693,13 @@ async function draw4H() {
 
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
-  if (ws) { try { ws.close(); } catch(e){} }
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (ws) { try { ws.close(); } catch(e){} ws = null; }
+  _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
   const sym = currentSymbol.toLowerCase();
   ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onopen = () => { console.log('WS connected'); if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
-  ws.onerror = () => {
-    console.warn('Binance WS failed, using poll');
-    try { ws.close(); } catch(e){}
-    ws = null;
-    startPoll();
-  };
-  ws.onclose = () => {
-    const wasWs = ws;
-    ws = null;
-    if (wasWs) setTimeout(connectWS, 3000);
-  };
+  ws.onopen = () => console.log('WS connected:', sym, currentTF);
+  ws.onerror = () => { ws = null; setTimeout(connectWS, 3000); };
+  ws.onclose = () => { ws = null; setTimeout(connectWS, 3000); };
   ws.onmessage = (e) => {
     const d = JSON.parse(e.data).k;
     handleCandle({
@@ -719,24 +710,6 @@ function connectWS() {
       close:parseFloat(d.c),
     }, d.x);
   };
-}
-
-let pollTimer = null;
-function startPoll() {
-  if (pollTimer) clearInterval(pollTimer);
-  if (ws) return;
-  pollTimer = setInterval(async () => {
-    if (ws) { clearInterval(pollTimer); pollTimer = null; return; }
-    const data = await fetchCandles(currentSymbol, currentTF);
-    if (!data.length) return;
-    const last = data[data.length-1];
-    handleCandle(last, false);
-    if (candles.length && last.time > candles[candles.length-1].time) {
-      candles.push(last);
-      if (candles.length > 300) candles.shift();
-      saveAndRestore(() => analyzeAndDraw(candles));
-    }
-  }, 3000);
 }
 
 let _lastCandleTime = 0;
