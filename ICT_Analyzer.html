@@ -347,6 +347,7 @@ let chart, candleSeries;
 let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
+let wsReconnectTimer = null;
 let candles = [];
 let htfOn = false;
 let openPrice = null;
@@ -698,18 +699,28 @@ function connectWS() {
   const mySymbol = currentSymbol;
   const myTF = currentTF;
 
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   if (ws) { try { ws.onerror = null; ws.onclose = null; ws.onmessage = null; ws.close(); } catch(e){} ws = null; }
   _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
   const sym = mySymbol.toLowerCase();
   const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${myTF}`);
   ws = socket;
   socket.onopen = () => console.log('WS connected:', sym, myTF);
-  // 자동 재연결 없음: 끊기면 그냥 끊긴 상태로 둔다 (심볼/TF를 바꾸면 다시 연결됨).
-  // onerror/onclose 양쪽에서 재연결을 걸면 하나의 실패에 재연결이 중복으로 걸려서
-  // 소켓이 계속 늘어나고, 그 결과 캔들이 두 스트림에서 따로 갱신되어
-  // "차트가 두 개처럼" 보이거나 브라우저가 멈추는 원인이 됐음.
+  // 재연결은 onclose 한 곳에서만, 딱 한 번만 예약한다.
+  // (onerror에서도 재연결을 걸면 브라우저가 error→close를 연달아 발생시켜
+  //  같은 실패에 재연결이 2개씩 겹쳐 걸리고, 그게 반복되면서 소켓이 계속
+  //  늘어나 캔들이 여러 스트림에서 따로 갱신되는 "차트 두 개" 버그가 났었음)
   socket.onerror = () => { if (ws === socket) ws = null; };
-  socket.onclose = () => { if (ws === socket) ws = null; };
+  socket.onclose = () => {
+    if (ws !== socket) return; // 이미 다른 소켓으로 교체된 뒤라면 무시
+    ws = null;
+    // 그 사이 심볼/TF가 바뀌었으면 이 소켓 재연결은 의미 없음 (새 소켓이 이미 연결됨)
+    if (mySymbol !== currentSymbol || myTF !== currentTF) return;
+    wsReconnectTimer = setTimeout(() => {
+      wsReconnectTimer = null;
+      if (!ws && mySymbol === currentSymbol && myTF === currentTF) connectWS();
+    }, 3000);
+  };
   socket.onmessage = (e) => {
     if (ws !== socket) return; // 이미 교체된 낡은 소켓이면 무시
     const d = JSON.parse(e.data).k;
