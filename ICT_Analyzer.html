@@ -693,14 +693,25 @@ async function draw4H() {
 
 // ─── WEBSOCKET ────────────────────────────────────────────
 function connectWS() {
-  if (ws) { try { ws.close(); } catch(e){} ws = null; }
+  // 이 소켓이 어떤 심볼/TF용인지 고정해두고, 나중에 currentSymbol/currentTF가
+  // 바뀌어도 이 소켓의 콜백이 잘못된 재연결이나 낡은 데이터 반영을 하지 않게 함
+  const mySymbol = currentSymbol;
+  const myTF = currentTF;
+
+  if (ws) { try { ws.onerror = null; ws.onclose = null; ws.onmessage = null; ws.close(); } catch(e){} ws = null; }
   _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
-  const sym = currentSymbol.toLowerCase();
-  ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${currentTF}`);
-  ws.onopen = () => console.log('WS connected:', sym, currentTF);
-  ws.onerror = () => { ws = null; setTimeout(connectWS, 3000); };
-  ws.onclose = () => { ws = null; setTimeout(connectWS, 3000); };
-  ws.onmessage = (e) => {
+  const sym = mySymbol.toLowerCase();
+  const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${myTF}`);
+  ws = socket;
+  socket.onopen = () => console.log('WS connected:', sym, myTF);
+  // 자동 재연결 없음: 끊기면 그냥 끊긴 상태로 둔다 (심볼/TF를 바꾸면 다시 연결됨).
+  // onerror/onclose 양쪽에서 재연결을 걸면 하나의 실패에 재연결이 중복으로 걸려서
+  // 소켓이 계속 늘어나고, 그 결과 캔들이 두 스트림에서 따로 갱신되어
+  // "차트가 두 개처럼" 보이거나 브라우저가 멈추는 원인이 됐음.
+  socket.onerror = () => { if (ws === socket) ws = null; };
+  socket.onclose = () => { if (ws === socket) ws = null; };
+  socket.onmessage = (e) => {
+    if (ws !== socket) return; // 이미 교체된 낡은 소켓이면 무시
     const d = JSON.parse(e.data).k;
     handleCandle({
       time: d.t/1000,
