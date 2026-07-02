@@ -413,13 +413,30 @@ let dwLines=[];
 let currentZones = {};
 
 // ─── CHART INIT ───────────────────────────────────────────
+// lightweight-charts v3에는 timezone 옵션 자체가 없어서 (timeScale.timezone은 무시되는 필드),
+// 캔들 시간(UTC unix)을 직접 KST(+9시간)로 변환해서 축/크로스헤어에 표시해준다.
+function kstParts(time) {
+  const d = new Date((time + 9*3600) * 1000);
+  return { mo: d.getUTCMonth()+1, day: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() };
+}
+function kstAxisFormat(time) {
+  const p = kstParts(time);
+  if (p.h===0 && p.mi===0) return `${p.mo}/${p.day}`;
+  return `${String(p.h).padStart(2,'0')}:${String(p.mi).padStart(2,'0')}`;
+}
+function kstCrosshairFormat(time) {
+  const p = kstParts(time);
+  return `${p.mo}월 ${p.day}일 ${String(p.h).padStart(2,'0')}:${String(p.mi).padStart(2,'0')} (KST)`;
+}
+
 function initChart() {
   chart = LightweightCharts.createChart(document.getElementById('chart'), {
     layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
     grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor: '#1e1e2e' },
-    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 0, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
+    localization: { timeFormatter: kstCrosshairFormat },
+    timeScale: { borderColor: '#1e1e2e', rightOffset: 0, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false, tickMarkFormatter: kstAxisFormat },
     handleScroll: true,
     handleScale: true,
   });
