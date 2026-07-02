@@ -474,6 +474,7 @@ async function fetchCandles(symbol, tf) {
       high: parseFloat(k[2]),
       low:  parseFloat(k[3]),
       close:parseFloat(k[4]),
+      volume:parseFloat(k[5]),
     }));
   } catch {
     try {
@@ -485,6 +486,7 @@ async function fetchCandles(symbol, tf) {
         high: parseFloat(k[2]),
         low:  parseFloat(k[3]),
         close:parseFloat(k[4]),
+        volume:parseFloat(k[5]),
       }));
     } catch { return []; }
   }
@@ -585,18 +587,18 @@ function findEqualLevels(data, key, tolerancePct=0.08) {
   for (let i=0; i<data.length; i++) {
     if (used[i]) continue;
     const base = data[i][key];
-    let sum = base, count = 1;
+    let sum = base, count = 1, lastIdx = i;
     used[i] = true;
     for (let j=i+1; j<data.length; j++) {
       if (used[j]) continue;
       if (Math.abs(data[j][key]-base)/base*100 <= tolerancePct) {
-        sum += data[j][key]; count++; used[j] = true;
+        sum += data[j][key]; count++; used[j] = true; lastIdx = j;
       }
     }
-    if (count >= 2) clusters.push({ price: sum/count, count });
+    if (count >= 2) clusters.push({ price: sum/count, count, lastIdx });
   }
-  // 겹치는 수가 많은(=더 확실한 유동성 풀) 순으로 정렬
-  return clusters.sort((a,b)=>a.count-b.count);
+  // 겹치는 수가 많을수록, 같은 수라면 더 최근에 닿은 클러스터일수록 뒤로(우선순위 높게)
+  return clusters.sort((a,b)=> (a.count-b.count) || (a.lastIdx-b.lastIdx));
 }
 
 // ─── ICT ANALYSIS ─────────────────────────────────────────
@@ -658,11 +660,15 @@ function analyzeAndDraw(data) {
   // ── BSL / SSL (매수측/매도측 유동성) ──────────────────────
   // 비슷한 높이의 고점/저점이 2개 이상 모이면 그 위/아래에 스탑로스가 쌓인
   // "진짜" 유동성 풀로 본다 (단순 top-N 고저가 아님).
-  const eqHighs = findEqualLevels(data, 'high');
-  const eqLows  = findEqualLevels(data, 'low');
+  // 전체 200개 캔들(며칠치)을 다 뒤지면, 예전에 오래 횡보했던 옛날 가격대가
+  // 카운트만 높다는 이유로 "가장 확실한 유동성"으로 잘못 뽑히는 문제가 있었음.
+  // 최근 구간으로만 좁혀서 현재가와 무관한 과거 레벨이 끼어들지 않게 함.
+  const liqWindow = data.slice(-60);
+  const eqHighs = findEqualLevels(liqWindow, 'high');
+  const eqLows  = findEqualLevels(liqWindow, 'low');
   // 클러스터가 하나도 없으면(전부 제각각이면) fallback으로 최근 고/저 1개씩 사용
-  const bslLevels = eqHighs.length ? eqHighs.slice(-2) : [{price: Math.max(...data.map(c=>c.high)), count:1}];
-  const sslLevels = eqLows.length  ? eqLows.slice(-2)  : [{price: Math.min(...data.map(c=>c.low)),  count:1}];
+  const bslLevels = eqHighs.length ? eqHighs.slice(-2) : [{price: Math.max(...liqWindow.map(c=>c.high)), count:1}];
+  const sslLevels = eqLows.length  ? eqLows.slice(-2)  : [{price: Math.min(...liqWindow.map(c=>c.low)),  count:1}];
 
   if (layers.liq) {
     bslLevels.forEach(lv => {
@@ -704,16 +710,40 @@ function analyzeAndDraw(data) {
   const amd = currentZones.amd || '-';
 
   // ── 저지 스윙(Judas Swing) 감지 ─────────────────────────
-  // 킬존이 켜져있는 동안, 직전 봉이 최근 스윙 고/저를 찍고(가짜 돌파) 반대로 강하게 마감했는지 확인
+  // 킬존이 켜져있는 동안, 직전 봉이 최근 스윙 고/저를 찍고(가짜 돌파) 반대로 강하게 마감했는지 확인.
+  // 여기에 거래량 조건을 추가: 진짜 저지스윙은 보통 그 스윕 캔들에서 거래량이 튀는 경우가 많아서,
+  // 최근 평균 거래량 대비 확 튄 경우만 신호로 인정해 단순 되돌림과의 혼동을 줄인다.
   const judasBadge = document.getElementById('judasBadge');
   if (judasBadge) {
     judasBadge.className = 'judas-badge';
-    if (layers.judas && data.length>=2 && currentZones.anyKZ) {
+    // 킬존은 하루 중 몇 시간짜리 시간대 개념이라, 일봉/4H처럼 캔들 하나가
+    // 몇 시간~하루를 통째로 담는 타임프레임에서는 저지스윙 판정이 의미가 없음.
+    if (layers.judas && isLTF() && data.length>=2 && currentZones.anyKZ) {
       const prev = data[data.length-2], last = data[data.length-1];
       let judas = null;
       if (prev.high>=hh && last.close<prev.open && last.close<hh) judas = 'bear';
       else if (prev.low<=ll && last.close>prev.open && last.close>ll) judas = 'bull';
+
+      // 거래량 확인: 직전 20개 캔들 평균 거래량 대비 스윕 캔들(prev)이 1.5배 이상인지
+      let volOk = true; // 거래량 데이터가 없으면(과거 저장분 등) 조건 생략하고 가격 조건만으로 판정
+      if (judas && typeof prev.volume === 'number') {
+        const volWindow = data.slice(Math.max(0,data.length-22), data.length-2);
+        if (volWindow.length >= 5) {
+          const avgVol = volWindow.reduce((s,c)=>s+(c.volume||0),0)/volWindow.length;
+          volOk = avgVol>0 && prev.volume >= avgVol*1.5;
+        }
+      }
+
+      // 컨플루언스 확인: 스윕 지점이 실제로 감지된 BSL/SSL 유동성 레벨 근처(±0.2%)에서
+      // 나온 건지 확인. 아무 자리에서나 튄 스파이크는 저지스윙으로 인정하지 않는다.
+      let liqOk = true;
       if (judas) {
+        const sweepPrice = judas==='bear' ? prev.high : prev.low;
+        const pool = judas==='bear' ? bslLevels : sslLevels;
+        liqOk = pool.some(lv => Math.abs(sweepPrice-lv.price)/lv.price*100 <= 0.2);
+      }
+
+      if (judas && volOk && liqOk) {
         judasBadge.classList.add('show', judas);
         judasBadge.textContent = judas==='bull' ? '⚡ 저지스윙(상승 반전)' : '⚡ 저지스윙(하락 반전)';
       }
@@ -929,6 +959,7 @@ function connectWS() {
       high: parseFloat(d.h),
       low:  parseFloat(d.l),
       close:parseFloat(d.c),
+      volume:parseFloat(d.v),
     }, d.x);
   };
 }
