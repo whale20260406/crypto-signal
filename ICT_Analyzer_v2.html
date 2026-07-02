@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICT Analyzer</title>
+<script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --accent: #00d4ff;
+    --bull: #00e5a0;
+    --bear: #ff4466;
+    --text: #c8c8e0;
+    --muted: #555570;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  .symbol-btns {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .symbol-btns::-webkit-scrollbar { display: none; }
+
+  .sym-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sym-btn:hover, .sym-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+  }
+
+  .tf-btns {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .tf-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.15s;
+  }
+  .tf-btn:hover, .tf-btn.active {
+    border-color: var(--bull);
+    color: var(--bull);
+    background: rgba(0,229,160,0.08);
+  }
+
+  .legend-bar {
+    display: flex;
+    gap: 12px;
+    padding: 6px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 11px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 0.2s;
+    user-select: none;
+  }
+  .leg-item.off { opacity: 0.3; }
+  .leg-box {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .leg-label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+  #chart-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #chart { width: 100%; height: 100%; }
+
+  .bottom-panel {
+    display: flex;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 56px;
+  }
+  .stat-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border);
+    padding: 4px;
+  }
+  .stat-box:last-child { border-right: none; }
+  .stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+  .stat-val {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    margin-top: 2px;
+  }
+  .bull { color: var(--bull); }
+  .bear { color: var(--bear); }
+  .neutral { color: var(--accent); }
+
+  .price-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: 'Space Mono', monospace;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .price-main {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,212,255,0.3);
+  }
+  .price-change { font-size: 12px; margin-top: 2px; }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--bull);
+    display: inline-block;
+    margin-right: 4px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .signal-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    animation: badgePop 0.4s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .signal-badge.show { display: flex; }
+  .signal-badge.buy { background: rgba(0,229,160,0.15); border: 1px solid var(--bull); color: var(--bull); }
+  .signal-badge.sell { background: rgba(255,68,102,0.15); border: 1px solid var(--bear); color: var(--bear); }
+  .signal-badge.wait { background: rgba(0,212,255,0.08); border: 1px solid var(--accent); color: var(--accent); }
+
+  .kz-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .kz-badge.show { display: flex; }
+  .kz-badge.london { background: rgba(255,120,0,0.15); border: 1px solid #ff7800; color: #ff7800; }
+  .kz-badge.ny { background: rgba(255,200,0,0.15); border: 1px solid #ffc800; color: #ffc800; }
+
+  .amd-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.4);
+    color: var(--bull);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .amd-badge.show { display: flex; }
+
+  .sb-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: rgba(180,80,255,0.15);
+    border: 1px solid #b450ff;
+    color: #b450ff;
+  }
+  .sb-badge.show { display: flex; }
+
+  .judas-badge {
+    display: none;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    animation: badgePop 0.4s ease;
+  }
+  .judas-badge.show { display: flex; }
+  .judas-badge.bull { background: rgba(0,229,160,0.15); border: 1px solid #00e5a0; color: #00e5a0; }
+  .judas-badge.bear { background: rgba(255,68,102,0.15); border: 1px solid #ff4466; color: #ff4466; }
+
+  @keyframes badgePop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">◈ ICT</div>
+  <div class="symbol-btns">
+    <button class="sym-btn active" onclick="changeSymbol('BTCUSDT',this)">BTC</button>
+    <button class="sym-btn" onclick="changeSymbol('ETHUSDT',this)">ETH</button>
+    <button class="sym-btn" onclick="changeSymbol('SOLUSDT',this)">SOL</button>
+    <button class="sym-btn" onclick="changeSymbol('XRPUSDT',this)">XRP</button>
+    <button class="sym-btn" onclick="changeSymbol('BNBUSDT',this)">BNB</button>
+  </div>
+  <div id="signalBadge" class="signal-badge wait show">⏳ 대기</div>
+  <div class="tf-btns">
+    <button class="tf-btn" onclick="changeTF('1m',this)">1m</button>
+    <button class="tf-btn" onclick="changeTF('5m',this)">5m</button>
+    <button class="tf-btn" onclick="changeTF('15m',this)">15m</button>
+    <button class="tf-btn active" onclick="changeTF('1h',this)">1H</button>
+    <button class="tf-btn" onclick="changeTF('4h',this)">4H</button>
+    <button class="tf-btn" onclick="changeTF('1d',this)">1D</button>
+  </div>
+</div>
+
+<div class="legend-bar">
+  <div class="leg-item" id="leg-fvg-bull" onclick="toggleLayer('fvgBull')">
+    <div class="leg-box" style="background:rgba(0,180,255,0.4);border:1px solid #00b4ff"></div>
+    <span class="leg-label">강세 FVG</span>
+  </div>
+  <div class="leg-item" id="leg-fvg-bear" onclick="toggleLayer('fvgBear')">
+    <div class="leg-box" style="background:rgba(255,200,0,0.4);border:1px solid #ffc800"></div>
+    <span class="leg-label">약세 FVG</span>
+  </div>
+  <div class="leg-item" id="leg-ob-bull" onclick="toggleLayer('obBull')">
+    <div class="leg-box" style="background:rgba(0,229,160,0.4);border:1px solid #00e5a0"></div>
+    <span class="leg-label">강세 OB</span>
+  </div>
+  <div class="leg-item" id="leg-ob-bear" onclick="toggleLayer('obBear')">
+    <div class="leg-box" style="background:rgba(255,68,102,0.4);border:1px solid #ff4466"></div>
+    <span class="leg-label">약세 OB</span>
+  </div>
+  <div class="leg-item" id="leg-liq" onclick="toggleLayer('liq')">
+    <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
+    <span class="leg-label">BSL/SSL</span>
+  </div>
+  <div class="leg-item" id="leg-ote" onclick="toggleLayer('ote')">
+    <div class="leg-box" style="background:rgba(180,80,255,0.4);border:1px solid #b450ff"></div>
+    <span class="leg-label">OTE 존</span>
+  </div>
+  <div class="leg-item" id="leg-dw" onclick="toggleLayer('dw')">
+    <div class="leg-box" style="background:rgba(255,174,0,0.4);border:1px solid #ffae00"></div>
+    <span class="leg-label">전일/주간</span>
+  </div>
+
+  <div id="kzBadge" class="kz-badge"></div>
+  <div id="amdBadge" class="amd-badge"></div>
+  <div id="sbBadge" class="sb-badge"></div>
+  <div id="judasBadge" class="judas-badge"></div>
+
+  <div style="margin-left:auto;display:flex;align-items:center;font-size:11px;color:var(--muted)">
+    <span class="status-dot"></span>LIVE
+  </div>
+</div>
+
+<div id="chart-container">
+  <div class="price-overlay">
+    <div class="price-main" id="priceMain">--</div>
+    <div class="price-change" id="priceChange">--</div>
+  </div>
+  <div id="chart"></div>
+</div>
+
+<div class="bottom-panel">
+  <div class="stat-box">
+    <div class="stat-label">FVG</div>
+    <div class="stat-val neutral" id="statFVG">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">OB</div>
+    <div class="stat-val neutral" id="statOB">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">유동성</div>
+    <div class="stat-val neutral" id="statLiq">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">구조</div>
+    <div class="stat-val neutral" id="statMSS">-</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">AMD</div>
+    <div class="stat-val neutral" id="statAMD">-</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">바이어스</div>
+    <div class="stat-val neutral" id="statBias">-</div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────
+let chart, candleSeries;
+let currentSymbol = 'BTCUSDT';
+let currentTF = '1h';
+let ws = null;
+let wsReconnectTimer = null;
+let candles = [];
+let htfOn = false;
+let openPrice = null;
+let userScrollPos = null;  // 사용자 스크롤 위치 (픽셀)
+let isUserScrolled = false; // 사용자가 스크롤 했는지
+
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, ote: true, dw: true, judas: true };
+
+// overlay storage
+let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], liqLines=[];
+// 4H overlay (priceLine 기반)
+let htf4HLines = [];
+// OTE(Premium/Discount) 존
+let oteBoxes=[], oteLines=[];
+// 전일/주간 레벨 (PDH/PDL, 데일리/위클리 오픈)
+let dwLines=[];
+// 현재 세션 상태 (킬존/AMD/실버불릿) - updateSessionBadges()에서 갱신, judas 판정에서 재사용
+let currentZones = {};
+
+// ─── CHART INIT ───────────────────────────────────────────
+function initChart() {
+  chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
+    grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#1e1e2e' },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 0, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00e5a0',
+    downColor: '#ff4466',
+    borderUpColor: '#00e5a0',
+    borderDownColor: '#ff4466',
+    wickUpColor: '#00e5a0',
+    wickDownColor: '#ff4466',
+  });
+
+  window.addEventListener('resize', () => chart.resize(
+    document.getElementById('chart').clientWidth,
+    document.getElementById('chart').clientHeight
+  ));
+
+  // 사용자가 차트 건드리면 위치 저장
+  chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    if (!_codeUpdating) {
+      userScrollPos = chart.timeScale().getVisibleLogicalRange();
+      isUserScrolled = true;
+    }
+  });
+}
+
+let _codeUpdating = false;
+
+// ─── SCROLL RESTORE ───────────────────────────────────────
+function saveAndRestore(fn) {
+  _codeUpdating = true;
+  fn();
+  setTimeout(() => { _codeUpdating = false; }, 50);
+}
+
+// ─── DATA ─────────────────────────────────────────────────
+async function fetchCandles(symbol, tf) {
+  const tfMap = { '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d' };
+  const interval = tfMap[tf] || '1h';
+  const limit = 200;
+  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`;
+
+  try {
+    let res = await fetch(binanceUrl);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return data.map(k => ({
+      time: k[0]/1000,
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low:  parseFloat(k[3]),
+      close:parseFloat(k[4]),
+    }));
+  } catch {
+    try {
+      let res = await fetch(proxy);
+      const data = await res.json();
+      return data.map(k => ({
+        time: k[0]/1000,
+        open: parseFloat(k[1]),
+        high: parseFloat(k[2]),
+        low:  parseFloat(k[3]),
+        close:parseFloat(k[4]),
+      }));
+    } catch { return []; }
+  }
+}
+
+// ─── LOAD CHART ───────────────────────────────────────────
+// 심볼/TF를 빠르게 연속으로 바꾸면 fetchCandles()가 여러 개 동시에 날아가고,
+// 먼저 시작했지만 나중에 응답이 오는 요청이 최신 차트를 오래된 데이터로 덮어써서
+// "가짜차트"가 잠깐 보이고, 그 뒤 실시간 캔들이 시간 역행 업데이트를 시도하면서
+// "Cannot update oldest data" 에러가 났었음. 요청마다 토큰을 발급해서
+// 가장 마지막에 시작한 요청의 결과만 반영하도록 막는다.
+let _loadToken = 0;
+async function loadChart() {
+  const myToken = ++_loadToken;
+  clearAll();
+  const fetched = await fetchCandles(currentSymbol, currentTF);
+  // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
+  if (myToken !== _loadToken) return;
+  candles = fetched;
+  if (!candles.length) return;
+  openPrice = candles[0].open;
+  candleSeries.setData(candles);
+  updatePrice(candles[candles.length-1]);
+  analyzeAndDraw(candles);
+  connectWS();
+  drawDailyWeekly(myToken);
+}
+
+function isLTF() {
+  return ['1m','5m','15m','1h'].includes(currentTF);
+}
+
+// ─── CLEAR ────────────────────────────────────────────────
+function clearMain() {
+  [...fvgBullSeries,...fvgBearSeries,...obBullSeries,...obBearSeries,...oteBoxes].forEach(s => {
+    if (s&&s.top) { try{chart.removeSeries(s.top);}catch(e){} }
+    if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
+  });
+  fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; oteBoxes=[];
+  [...liqLines,...oteLines].forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  liqLines=[]; oteLines=[];
+}
+
+function clearHTF() {
+  htf4HLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  htf4HLines=[];
+}
+
+function clearDW() {
+  dwLines.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+  dwLines=[];
+}
+
+function clearAll() {
+  clearMain();
+  clearHTF();
+  clearDW();
+}
+
+// ─── PRICE LINE HELPER ────────────────────────────────────
+function addPriceLine(price, color, width, style, label, labelVis=true) {
+  return candleSeries.createPriceLine({
+    price, color,
+    lineWidth: width,
+    lineStyle: style,
+    axisLabelVisible: labelVis,
+    title: label,
+  });
+}
+
+// ─── BOX HELPER ───────────────────────────────────────────
+function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
+  const topLine = chart.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
+  });
+  topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
+
+  const botLine = chart.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
+  });
+  botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
+
+  return { top: topLine, bot: botLine };
+}
+
+// ─── EQUAL HIGHS/LOWS (BSL/SSL) HELPER ─────────────────────
+// key가 'high'면 비슷한 높이의 고점들을(매수측 유동성 BSL), 'low'면 비슷한 저점들을
+// (매도측 유동성 SSL) tolerancePct(%) 오차 내에서 묶어 클러스터로 반환한다.
+function findEqualLevels(data, key, tolerancePct=0.08) {
+  const used = new Array(data.length).fill(false);
+  const clusters = [];
+  for (let i=0; i<data.length; i++) {
+    if (used[i]) continue;
+    const base = data[i][key];
+    let sum = base, count = 1;
+    used[i] = true;
+    for (let j=i+1; j<data.length; j++) {
+      if (used[j]) continue;
+      if (Math.abs(data[j][key]-base)/base*100 <= tolerancePct) {
+        sum += data[j][key]; count++; used[j] = true;
+      }
+    }
+    if (count >= 2) clusters.push({ price: sum/count, count });
+  }
+  // 겹치는 수가 많은(=더 확실한 유동성 풀) 순으로 정렬
+  return clusters.sort((a,b)=>a.count-b.count);
+}
+
+// ─── ICT ANALYSIS ─────────────────────────────────────────
+function analyzeAndDraw(data) {
+  clearMain();
+  if (data.length < 5) return;
+
+  const lastTime = data[data.length-1].time + 86400*7; // 7일 연장
+  const D = LightweightCharts.LineStyle.Dashed;
+  const S = LightweightCharts.LineStyle.Solid;
+
+  // ── FVG ───────────────────────────────────────────────
+  const fvgBull=[], fvgBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const p=data[i-1], n=data[i+1];
+    if (n.low > p.high) fvgBull.push({time:data[i].time, low:p.high, high:n.low});
+    if (n.high < p.low) fvgBear.push({time:data[i].time, low:n.high, high:p.low});
+  }
+
+  if (layers.fvgBull) {
+    fvgBull.slice(-3).forEach(f => {
+      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(0,180,255,0.15)', '#00b4ff', 1);
+      fvgBullSeries.push(s);
+    });
+  }
+  if (layers.fvgBear) {
+    fvgBear.slice(-3).forEach(f => {
+      const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(255,200,0,0.15)', '#ffc800', 1);
+      fvgBearSeries.push(s);
+    });
+  }
+
+  // ── OB ────────────────────────────────────────────────
+  const obBull=[], obBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const c=data[i], n=data[i+1];
+    if (c.close<c.open && n.close>n.open && n.close>c.high) obBull.push(c);
+    if (c.close>c.open && n.close<n.open && n.close<c.low)  obBear.push(c);
+  }
+
+  // 현재가 아래 강세 OB
+  const curPrice = data[data.length-1].close;
+  const belowBull = obBull.filter(o=>o.high<curPrice).slice(-2);
+  const aboveBear = obBear.filter(o=>o.low>curPrice).slice(-2);
+
+  if (layers.obBull) {
+    belowBull.forEach(o => {
+      const s = addBox(o.time, lastTime, o.low, o.high, 'rgba(0,229,160,0.15)', '#00e5a0', 2);
+      obBullSeries.push(s);
+    });
+  }
+  if (layers.obBear) {
+    aboveBear.forEach(o => {
+      const s = addBox(o.time, lastTime, o.low, o.high, 'rgba(255,68,102,0.15)', '#ff4466', 2);
+      obBearSeries.push(s);
+    });
+  }
+
+  // ── BSL / SSL (매수측/매도측 유동성) ──────────────────────
+  // 비슷한 높이의 고점/저점이 2개 이상 모이면 그 위/아래에 스탑로스가 쌓인
+  // "진짜" 유동성 풀로 본다 (단순 top-N 고저가 아님).
+  const eqHighs = findEqualLevels(data, 'high');
+  const eqLows  = findEqualLevels(data, 'low');
+  // 클러스터가 하나도 없으면(전부 제각각이면) fallback으로 최근 고/저 1개씩 사용
+  const bslLevels = eqHighs.length ? eqHighs.slice(-2) : [{price: Math.max(...data.map(c=>c.high)), count:1}];
+  const sslLevels = eqLows.length  ? eqLows.slice(-2)  : [{price: Math.min(...data.map(c=>c.low)),  count:1}];
+
+  if (layers.liq) {
+    bslLevels.forEach(lv => {
+      const l = addPriceLine(lv.price,'rgba(255,68,102,0.6)',1,LightweightCharts.LineStyle.Dashed,`BSL ×${lv.count}`);
+      liqLines.push(l);
+    });
+    sslLevels.forEach(lv => {
+      const l = addPriceLine(lv.price,'rgba(0,229,160,0.6)',1,LightweightCharts.LineStyle.Dashed,`SSL ×${lv.count}`);
+      liqLines.push(l);
+    });
+  }
+
+  // ── 구조/바이어스 분석 (스윙 고저 기준) ────────────────────
+  const recent = data.slice(-30);
+  let hh=0, ll=Infinity, hhIdx=0, llIdx=0;
+  recent.forEach((c,i) => {
+    if (c.high>hh) { hh=c.high; hhIdx=i; }
+    if (c.low<ll)  { ll=c.low;  llIdx=i; }
+  });
+  const bias = llIdx > hhIdx ? '상승' : hhIdx > llIdx ? '하락' : '중립';
+
+  // ── Premium/Discount 존 (OTE) ─────────────────────────
+  // 스윙 저점~고점 구간의 50%(균형가) 및 61.8~79% 되돌림(최적 진입구간) 표시
+  if (layers.ote && hh > ll) {
+    const range = hh - ll;
+    const t1 = recent[0].time, t2 = lastTime;
+    const eq = ll + range*0.5;
+    oteLines.push(addPriceLine(eq, 'rgba(200,200,224,0.5)', 1, D, 'EQ 50%'));
+
+    // 상승 바이어스면 저점 쪽(디스카운트) OTE, 하락 바이어스면 고점 쪽(프리미엄) OTE
+    let oteLow, oteHigh;
+    if (bias === '하락') { oteLow = ll+range*0.618; oteHigh = ll+range*0.79; }
+    else { oteLow = ll+range*0.21; oteHigh = ll+range*0.382; }
+    const s = addBox(t1, t2, oteLow, oteHigh, 'rgba(180,80,255,0.15)', '#b450ff', 1);
+    oteBoxes.push(s);
+  }
+
+  // ── 세션(킬존/AMD/실버불릿) 배지는 실시간 타이머로 별도 갱신됨 (updateSessionBadges) ──
+  const amd = currentZones.amd || '-';
+
+  // ── 저지 스윙(Judas Swing) 감지 ─────────────────────────
+  // 킬존이 켜져있는 동안, 직전 봉이 최근 스윙 고/저를 찍고(가짜 돌파) 반대로 강하게 마감했는지 확인
+  const judasBadge = document.getElementById('judasBadge');
+  if (judasBadge) {
+    judasBadge.className = 'judas-badge';
+    if (layers.judas && data.length>=2 && currentZones.anyKZ) {
+      const prev = data[data.length-2], last = data[data.length-1];
+      let judas = null;
+      if (prev.high>=hh && last.close<prev.open && last.close<hh) judas = 'bear';
+      else if (prev.low<=ll && last.close>prev.open && last.close>ll) judas = 'bull';
+      if (judas) {
+        judasBadge.classList.add('show', judas);
+        judasBadge.textContent = judas==='bull' ? '⚡ 저지스윙(상승 반전)' : '⚡ 저지스윙(하락 반전)';
+      }
+    }
+  }
+
+  // 신호
+  const sig = document.getElementById('signalBadge');
+  sig.className = 'signal-badge';
+  if (belowBull.length && bias==='상승') {
+    sig.classList.add('show','buy'); sig.textContent='● 매수';
+  } else if (aboveBear.length && bias==='하락') {
+    sig.classList.add('show','sell'); sig.textContent='● 매도';
+  } else {
+    sig.classList.add('show','wait'); sig.textContent='⏳ 대기';
+  }
+
+  // 하단 스탯
+  document.getElementById('statFVG').textContent = fvgBull.length+fvgBear.length;
+  document.getElementById('statOB').textContent = obBull.length+obBear.length;
+  document.getElementById('statLiq').textContent = bslLevels.length+sslLevels.length;
+
+  const mssEl = document.getElementById('statMSS');
+  const mssText = bias==='상승'?'상승':bias==='하락'?'하락':'중립';
+  mssEl.textContent = mssText;
+  mssEl.className = 'stat-val ' + (bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+
+  const amdEl = document.getElementById('statAMD');
+  amdEl.textContent = amd;
+  amdEl.className = 'stat-val ' + (amd==='배분'?'bull':amd==='조작'?'bear':'neutral');
+
+  const biasEl = document.getElementById('statBias');
+  const biasText = bias==='상승'?'매수':bias==='하락'?'매도':'중립';
+  biasEl.textContent = biasText;
+  biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+}
+
+// ─── 4H OVERLAY ───────────────────────────────────────────
+async function draw4H() {
+  clearHTF();
+  try {
+    const htfData = await fetchCandles(currentSymbol, '4h');
+    if (!htfData || htfData.length < 5) return;
+
+    const recent = htfData.slice(-20);
+    const D = LightweightCharts.LineStyle.Dashed;
+
+    for (let i=1; i<recent.length-1; i++) {
+      const p=recent[i-1], c=recent[i], n=recent[i+1];
+
+      // 강세 OB
+      if (c.close<c.open && n.close>n.open && n.close>c.high) {
+        const lH = addPriceLine(c.high,'#00e5a0',2,D,'4H 강세OB');
+        const lL = addPriceLine(c.low,'#00e5a0',2,D,'',false);
+        htf4HLines.push(lH, lL);
+      }
+      // 약세 OB
+      if (c.close>c.open && n.close<n.open && n.close<c.low) {
+        const lH = addPriceLine(c.high,'#ffc800',2,D,'4H 약세OB');
+        const lL = addPriceLine(c.low,'#ffc800',2,D,'',false);
+        htf4HLines.push(lH, lL);
+      }
+      // 강세 FVG
+      if (n.low > p.high) {
+        const mid = (n.low+p.high)/2;
+        const l = addPriceLine(mid,'#00b4ff',2,D,'4H FVG');
+        htf4HLines.push(l);
+      }
+      // 약세 FVG
+      if (n.high < p.low) {
+        const mid = (n.high+p.low)/2;
+        const l = addPriceLine(mid,'#ffc800',2,D,'4H FVG');
+        htf4HLines.push(l);
+      }
+    }
+  } catch(e) { console.warn('4H error:', e); }
+}
+
+// ─── 전일/주간 레벨 (PDH/PDL, 데일리/위클리 오픈) ─────────────
+// currentTF와 무관하게 항상 1일봉을 따로 가져와서 계산한다.
+async function drawDailyWeekly(myToken) {
+  clearDW();
+  if (!layers.dw) return;
+  try {
+    const daily = await fetchCandles(currentSymbol, '1d');
+    // 그 사이 더 최신 loadChart()가 시작됐으면 이 결과는 버림 (경쟁 상태 방지)
+    if (myToken !== undefined && myToken !== _loadToken) return;
+    if (daily.length < 3) return;
+    const D = LightweightCharts.LineStyle.Dashed;
+    const today = daily[daily.length-1];
+    const yesterday = daily[daily.length-2];
+
+    dwLines.push(addPriceLine(yesterday.high, '#ffae00', 1, D, '전일 고가 PDH'));
+    dwLines.push(addPriceLine(yesterday.low,  '#ffae00', 1, D, '전일 저가 PDL'));
+    dwLines.push(addPriceLine(today.open, '#8888ff', 1, D, '데일리 오픈'));
+
+    // 이번주 월요일(UTC 기준) 시가 찾기
+    const now = new Date();
+    const dow = now.getUTCDay(); // 0=일요일
+    const diffToMon = (dow===0 ? 6 : dow-1);
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()-diffToMon));
+    const mondayTs = monday.getTime()/1000;
+    const weekOpenCandle = daily.find(c => c.time >= mondayTs) || daily[0];
+    dwLines.push(addPriceLine(weekOpenCandle.open, '#ff66ff', 1, D, '위클리 오픈'));
+  } catch(e) { console.warn('daily/weekly levels error:', e); }
+}
+
+// ─── 세션 시간 계산 (뉴욕 현지시간 기준, DST 자동 반영) ─────────
+// 고정 KST 시간대로 계산하면 런던/뉴욕 서머타임(DST) 전환 때마다 실제 킬존과
+// 1시간씩 어긋나므로, Intl API로 각 거래소 "현지시간"을 직접 구해 계산한다.
+function zoneHourDecimal(tz) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false
+  }).formatToParts(new Date());
+  let h = parseInt(parts.find(p=>p.type==='hour').value, 10);
+  const m = parseInt(parts.find(p=>p.type==='minute').value, 10);
+  if (h === 24) h = 0;
+  return h + m/60;
+}
+function inWindow(h, start, end) {
+  return start < end ? (h>=start && h<end) : (h>=start || h<end);
+}
+
+// 30초마다 갱신되는 실시간 배지 (킬존/AMD/실버불릿). 캔들 데이터와 무관하게 항상 정확해야 함.
+function updateSessionBadges() {
+  const h = zoneHourDecimal('America/New_York'); // ICT 킬존은 전통적으로 뉴욕 현지시간 기준
+
+  const zones = {
+    asian:       inWindow(h, 20, 24),
+    londonOpen:  inWindow(h, 2, 5),
+    nyAM:        inWindow(h, 7, 10),
+    londonClose: inWindow(h, 10, 12),
+    sbAM:        inWindow(h, 10, 11),
+    sbPM:        inWindow(h, 14, 15),
+  };
+  zones.anyKZ = zones.londonOpen || zones.nyAM || zones.londonClose;
+  zones.amd = zones.asian ? '축적' : (zones.londonOpen||zones.londonClose) ? '조작' : zones.nyAM ? '배분' : '-';
+  currentZones = zones;
+
+  const kzBadge = document.getElementById('kzBadge');
+  if (kzBadge) {
+    kzBadge.className = 'kz-badge';
+    if (zones.londonOpen || zones.londonClose) {
+      kzBadge.classList.add('show','london');
+      kzBadge.textContent = zones.londonOpen ? '🇬🇧 런던 오픈 킬존' : '🇬🇧 런던 클로즈 킬존';
+    } else if (zones.nyAM) {
+      kzBadge.classList.add('show','ny');
+      kzBadge.textContent = '🇺🇸 뉴욕 킬존';
+    } else if (zones.asian) {
+      kzBadge.classList.add('show','ny');
+      kzBadge.textContent = '🌏 아시안 세션';
+    }
+  }
+
+  const amdBadge = document.getElementById('amdBadge');
+  if (amdBadge) {
+    amdBadge.className = 'amd-badge';
+    if (zones.amd !== '-') { amdBadge.classList.add('show'); amdBadge.textContent = zones.amd; }
+  }
+
+  const sbBadge = document.getElementById('sbBadge');
+  if (sbBadge) {
+    sbBadge.className = 'sb-badge';
+    if (zones.sbAM || zones.sbPM) {
+      sbBadge.classList.add('show');
+      sbBadge.textContent = '🥈 실버불릿 ' + (zones.sbAM ? 'AM' : 'PM');
+    }
+  }
+
+  // AMD 하단 스탯도 실시간으로 함께 갱신
+  const amdEl = document.getElementById('statAMD');
+  if (amdEl) {
+    amdEl.textContent = zones.amd;
+    amdEl.className = 'stat-val ' + (zones.amd==='배분'?'bull':zones.amd==='조작'?'bear':'neutral');
+  }
+}
+
+// ─── WEBSOCKET ────────────────────────────────────────────
+function connectWS() {
+  // 이 소켓이 어떤 심볼/TF용인지 고정해두고, 나중에 currentSymbol/currentTF가
+  // 바뀌어도 이 소켓의 콜백이 잘못된 재연결이나 낡은 데이터 반영을 하지 않게 함
+  const mySymbol = currentSymbol;
+  const myTF = currentTF;
+
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (ws) { try { ws.onerror = null; ws.onclose = null; ws.onmessage = null; ws.close(); } catch(e){} ws = null; }
+  _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
+  const sym = mySymbol.toLowerCase();
+  const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${myTF}`);
+  ws = socket;
+  socket.onopen = () => console.log('WS connected:', sym, myTF);
+  // 재연결은 onclose 한 곳에서만, 딱 한 번만 예약한다.
+  // (onerror에서도 재연결을 걸면 브라우저가 error→close를 연달아 발생시켜
+  //  같은 실패에 재연결이 2개씩 겹쳐 걸리고, 그게 반복되면서 소켓이 계속
+  //  늘어나 캔들이 여러 스트림에서 따로 갱신되는 "차트 두 개" 버그가 났었음)
+  socket.onerror = () => { if (ws === socket) ws = null; };
+  socket.onclose = () => {
+    if (ws !== socket) return; // 이미 다른 소켓으로 교체된 뒤라면 무시
+    ws = null;
+    // 그 사이 심볼/TF가 바뀌었으면 이 소켓 재연결은 의미 없음 (새 소켓이 이미 연결됨)
+    if (mySymbol !== currentSymbol || myTF !== currentTF) return;
+    wsReconnectTimer = setTimeout(() => {
+      wsReconnectTimer = null;
+      if (!ws && mySymbol === currentSymbol && myTF === currentTF) connectWS();
+    }, 3000);
+  };
+  socket.onmessage = (e) => {
+    if (ws !== socket) return; // 이미 교체된 낡은 소켓이면 무시
+    const d = JSON.parse(e.data).k;
+    handleCandle({
+      time: d.t/1000,
+      open: parseFloat(d.o),
+      high: parseFloat(d.h),
+      low:  parseFloat(d.l),
+      close:parseFloat(d.c),
+    }, d.x);
+  };
+}
+
+let _lastCandleTime = 0;
+function handleCandle(candle, isClosed) {
+  // 과거 시간 캔들이거나 비정상 데이터면 무시
+  if (candle.time < _lastCandleTime) return;
+  if (!candle.open || !candle.high || !candle.low || !candle.close) return;
+  if (candle.high < candle.low) return;
+  _lastCandleTime = candle.time;
+  _codeUpdating = true;
+  candleSeries.update(candle);
+  _codeUpdating = false;
+  updatePrice(candle);
+  if (isClosed) {
+    candles.push(candle);
+    if (candles.length > 300) candles.shift();
+    saveAndRestore(() => analyzeAndDraw(candles));
+  }
+}
+
+// ─── PRICE DISPLAY ────────────────────────────────────────
+function updatePrice(candle) {
+  const el = document.getElementById('priceMain');
+  const chEl = document.getElementById('priceChange');
+  const price = candle.close;
+  el.textContent = price > 1000
+    ? price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+    : price.toFixed(4);
+  if (openPrice) {
+    const chg = ((price-openPrice)/openPrice*100).toFixed(2);
+    chEl.textContent = (chg>=0?'+':'')+chg+'%';
+    chEl.style.color = chg>=0?'#00e5a0':'#ff4466';
+  }
+}
+
+// ─── CONTROLS ─────────────────────────────────────────────
+function changeSymbol(sym, btn) {
+  document.querySelectorAll('.sym-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSymbol = sym;
+  loadChart();
+}
+
+function changeTF(tf, btn) {
+  if (tf === currentTF) return;
+  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentTF = tf;
+  loadChart();
+}
+
+function toggleHTF() {
+  htfOn = !htfOn;
+  const el = document.getElementById('leg-htf');
+  if (el) el.classList.toggle('off', !htfOn);
+  if (htfOn && isLTF()) saveAndRestore(() => draw4H());
+  else clearHTF();
+}
+
+function toggleLayer(name) {
+  layers[name] = !layers[name];
+  const legMap = {
+    fvgBull:'leg-fvg-bull', fvgBear:'leg-fvg-bear',
+    obBull:'leg-ob-bull', obBear:'leg-ob-bear',
+    liq:'leg-liq', ote:'leg-ote', dw:'leg-dw',
+  };
+  const el = document.getElementById(legMap[name]);
+  if (el) el.classList.toggle('off', !layers[name]);
+  if (name === 'dw') { drawDailyWeekly(); return; }
+  saveAndRestore(() => analyzeAndDraw(candles));
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+initChart();
+loadChart();
+updateSessionBadges();
+setInterval(updateSessionBadges, 30000);
+</script>
+</body>
+</html>
