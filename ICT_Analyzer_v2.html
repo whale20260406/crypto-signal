@@ -569,9 +569,14 @@ async function loadChart() {
   requestAnimationFrame(() => {
     _codeUpdating = true;
     const firstT = candles[0].time, lastT = candles[candles.length-1].time;
-    // 새로 받아온 데이터가 이전에 보고 있던 시간대를 실제로 포함하고 있으면 그 구간을 그대로 유지.
-    // (예: 4H에서 며칠 전을 보고 있다가 1H로 바꿔도 같은 날짜대를 계속 보여줌)
-    if (prevVisibleRange && prevVisibleRange.from >= firstT && prevVisibleRange.from <= lastT) {
+    // 새로 받아온 데이터가 이전에 보고 있던 시간대를 실제로 포함하고, 그 구간에 새
+    // 타임프레임 캔들이 최소 15개 이상 들어가는 경우에만 그 구간을 유지한다.
+    // (예: 1H에서 며칠치를 보고 있다가 1D로 바꾸면 그 며칠은 캔들 1~2개뿐이라 화면이
+    //  극단적으로 확대되는 버그가 있었음 — 봉 개수가 너무 적으면 그냥 최근 구간으로 fallback)
+    const barsInWindow = prevVisibleRange
+      ? candles.filter(c => c.time >= prevVisibleRange.from && c.time <= prevVisibleRange.to).length
+      : 0;
+    if (prevVisibleRange && prevVisibleRange.from >= firstT && prevVisibleRange.from <= lastT && barsInWindow >= 15) {
       chart.timeScale().setVisibleRange(prevVisibleRange);
       isUserScrolled = true;
       userScrollPos = chart.timeScale().getVisibleLogicalRange();
