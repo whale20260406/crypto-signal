@@ -138,6 +138,20 @@
   }
   #chart { width: 100%; height: 100%; }
 
+  #clockOverlay {
+    position: absolute;
+    right: 8px;
+    bottom: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: rgba(10,10,15,0.6);
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5;
+  }
+
   .bottom-panel {
     display: flex;
     background: var(--panel);
@@ -357,6 +371,7 @@
     <div class="price-change" id="priceChange">--</div>
   </div>
   <div id="chart"></div>
+  <div id="clockOverlay">--:--:-- KST</div>
 </div>
 
 <div class="bottom-panel">
@@ -542,6 +557,17 @@ async function loadChart() {
   analyzeAndDraw(candles);
   connectWS();
   drawDailyWeekly(myToken);
+
+  // FVG/OB/OTE 박스들이 미래로 7일 연장돼서 그려지다 보니, 그걸 그대로 두면
+  // 차트 시야가 그 빈 미래 공간까지 자동으로 넓어져서 오른쪽으로 밀려버림.
+  // 그래서 심볼/타임프레임을 바꿀 때마다 명시적으로 "최근 캔들 100개" 범위로 고정해준다.
+  isUserScrolled = false;
+  _codeUpdating = true;
+  chart.timeScale().setVisibleLogicalRange({
+    from: Math.max(0, candles.length - 100),
+    to: candles.length + 4,
+  });
+  setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
 function isLTF() {
@@ -1063,11 +1089,23 @@ function toggleLayer(name) {
   saveAndRestore(() => analyzeAndDraw(candles));
 }
 
+// 우측 하단 실시간 시계 (트레이딩뷰 스타일)
+function updateClock() {
+  const el = document.getElementById('clockOverlay');
+  if (!el) return;
+  const s = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  }).format(new Date());
+  el.textContent = `${s} KST`;
+}
+
 // ─── INIT ─────────────────────────────────────────────────
 initChart();
 loadChart();
 updateSessionBadges();
 setInterval(updateSessionBadges, 30000);
+updateClock();
+setInterval(updateClock, 1000);
 </script>
 </body>
 </html>
