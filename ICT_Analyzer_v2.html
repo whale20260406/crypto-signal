@@ -417,11 +417,17 @@ let currentZones = {};
 // 캔들 시간(UTC unix)을 직접 KST(+9시간)로 변환해서 축/크로스헤어에 표시해준다.
 function kstParts(time) {
   const d = new Date((time + 9*3600) * 1000);
-  return { mo: d.getUTCMonth()+1, day: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() };
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth()+1, day: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() };
 }
-function kstAxisFormat(time) {
+// 라이브러리가 넘겨주는 tickMarkType(연/월/일/시각 중 지금 눈금이 어느 단위로 바뀌는지)을 그대로 써서
+// 포맷을 결정한다. 이전엔 "KST 00:00이면 날짜로 표시"라는 방식이었는데, 일봉/주봉은 캔들 시작이
+// UTC 00:00 = KST 09:00이라 절대 00:00이 안 나와서 날짜가 아예 안 뜨고 계속 09:00만 찍히던 버그가 있었음.
+function kstAxisFormat(time, tickMarkType) {
   const p = kstParts(time);
-  if (p.h===0 && p.mi===0) return `${p.mo}/${p.day}`;
+  const TMT = LightweightCharts.TickMarkType;
+  if (tickMarkType === TMT.Year) return `${p.y}`;
+  if (tickMarkType === TMT.Month) return `${p.y}.${p.mo}`;
+  if (tickMarkType === TMT.DayOfMonth) return `${p.mo}/${p.day}`;
   return `${String(p.h).padStart(2,'0')}:${String(p.mi).padStart(2,'0')}`;
 }
 function kstCrosshairFormat(time) {
@@ -469,7 +475,13 @@ let _codeUpdating = false;
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
   _codeUpdating = true;
+  const savedPos = userScrollPos; // fn() 실행 전 위치를 미리 붙잡아둔다
   fn();
+  // fn() 안에서 박스/시리즈를 다시 그리면 차트가 자동으로 오른쪽 끝으로 밀리는 경우가 있어서,
+  // 사용자가 스크롤해서 보고 있던 위치가 있으면 그 자리로 강제로 되돌려준다.
+  if (isUserScrolled && savedPos) {
+    chart.timeScale().setVisibleLogicalRange(savedPos);
+  }
   setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
