@@ -661,7 +661,11 @@ function analyzeAndDraw(data) {
   clearMain();
   if (data.length < 5) return;
 
-  const lastTime = data[data.length-1].time + 86400*7; // 7일 연장
+  // 박스(FVG/OB/OTE)를 얼마나 미래로 연장할지: 예전엔 무조건 "7일"이었는데,
+  // 1분봉 기준 7일 = 캔들 1만 개 분량이라 실제 캔들이 화면 왼쪽 구석에 몰리고
+  // 나머지 전부 빈 공간이 되는 심각한 버그였음. 타임프레임에 비례해서 8개 캔들 정도만 연장.
+  const tfSeconds = { '1m':60, '5m':300, '15m':900, '1h':3600, '4h':14400, '1d':86400 }[currentTF] || 3600;
+  const lastTime = data[data.length-1].time + tfSeconds*8;
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
