@@ -548,6 +548,9 @@ async function fetchCandles(symbol, tf) {
 let _loadToken = 0;
 async function loadChart() {
   const myToken = ++_loadToken;
+  // 타임프레임을 바꾸기 직전, 지금 실제로 보고 있던 "시간 구간"을 기억해둔다.
+  // (캔들 개수 기준 위치는 타임프레임마다 봉 간격이 달라서 의미가 없고, 실제 시각 기준이어야 함)
+  const prevVisibleRange = chart.timeScale().getVisibleRange();
   clearAll();
   const fetched = await fetchCandles(currentSymbol, currentTF);
   // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
@@ -561,17 +564,23 @@ async function loadChart() {
   connectWS();
   drawDailyWeekly(myToken);
 
-  // FVG/OB/OTE 박스들이 미래로 살짝 연장돼서 그려지다 보니, 그걸 그대로 두면
-  // 차트 시야가 자동으로 밀릴 수 있음. requestAnimationFrame으로 한 프레임 늦춰서
-  // 라이브러리 내부의 자동 정렬 동작이 다 끝난 뒤에 우리가 마지막으로 위치를 강제 고정한다.
-  isUserScrolled = false;
+  // requestAnimationFrame으로 한 프레임 늦춰서 라이브러리 내부의 자동 정렬 동작이
+  // 다 끝난 뒤에 우리가 마지막으로 위치를 정한다.
   requestAnimationFrame(() => {
     _codeUpdating = true;
-    chart.timeScale().setVisibleLogicalRange({
-      from: Math.max(0, candles.length - 100),
-      to: candles.length - 1,
-    });
-    setTimeout(() => { _codeUpdating = false; }, 50);
+    const firstT = candles[0].time, lastT = candles[candles.length-1].time;
+    // 새로 받아온 데이터가 이전에 보고 있던 시간대를 실제로 포함하고 있으면 그 구간을 그대로 유지.
+    // (예: 4H에서 며칠 전을 보고 있다가 1H로 바꿔도 같은 날짜대를 계속 보여줌)
+    if (prevVisibleRange && prevVisibleRange.from >= firstT && prevVisibleRange.from <= lastT) {
+      chart.timeScale().setVisibleRange(prevVisibleRange);
+      isUserScrolled = true;
+      userScrollPos = chart.timeScale().getVisibleLogicalRange();
+    } else {
+      // 새 타임프레임의 데이터 범위 밖이면(예: 처음 로드, 혹은 짧은 히스토리만 있는 TF) 최근 구간을 보여줌
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, candles.length-100), to: candles.length-1 });
+      isUserScrolled = false;
+    }
+    setTimeout(() => { _codeUpdating = false; }, 60);
   });
 }
 
