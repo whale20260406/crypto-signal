@@ -555,21 +555,12 @@ async function loadChart() {
   candles = fetched;
   if (!candles.length) return;
   openPrice = candles[0].open;
+  isUserScrolled = false;
   candleSeries.setData(candles);
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   connectWS();
   drawDailyWeekly(myToken);
-
-  // 타임프레임 간격 차이가 클 때(예: 15m→1D) 이전 시간대를 그대로 유지하려다 화면이
-  // 극단적으로 확대/축소되는 문제가 계속 재현되어, 안정성을 위해 심플하게
-  // "최근 캔들 80개" 구간으로 항상 고정하는 방식으로 되돌림.
-  requestAnimationFrame(() => {
-    _codeUpdating = true;
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, candles.length-80), to: candles.length-1 });
-    isUserScrolled = false;
-    setTimeout(() => { _codeUpdating = false; }, 60);
-  });
 }
 
 function isLTF() {
