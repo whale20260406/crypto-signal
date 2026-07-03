@@ -494,10 +494,13 @@ function saveAndRestore(fn) {
   fn();
   // fn() 안에서 박스/시리즈를 다시 그리면 차트가 자동으로 오른쪽 끝으로 밀리는 경우가 있어서,
   // 사용자가 스크롤해서 보고 있던 위치가 있으면 그 자리로 강제로 되돌려준다.
+  // requestAnimationFrame으로 한 프레임 늦춰서 라이브러리 내부 자동 정렬보다 나중에 실행되게 함.
   if (isUserScrolled && savedPos) {
-    chart.timeScale().setVisibleLogicalRange(savedPos);
+    requestAnimationFrame(() => {
+      chart.timeScale().setVisibleLogicalRange(savedPos);
+    });
   }
-  setTimeout(() => { _codeUpdating = false; }, 50);
+  setTimeout(() => { _codeUpdating = false; }, 60);
 }
 
 // ─── DATA ─────────────────────────────────────────────────
@@ -558,16 +561,18 @@ async function loadChart() {
   connectWS();
   drawDailyWeekly(myToken);
 
-  // FVG/OB/OTE 박스들이 미래로 7일 연장돼서 그려지다 보니, 그걸 그대로 두면
-  // 차트 시야가 그 빈 미래 공간까지 자동으로 넓어져서 오른쪽으로 밀려버림.
-  // 그래서 심볼/타임프레임을 바꿀 때마다 명시적으로 "최근 캔들 100개" 범위로 고정해준다.
+  // FVG/OB/OTE 박스들이 미래로 살짝 연장돼서 그려지다 보니, 그걸 그대로 두면
+  // 차트 시야가 자동으로 밀릴 수 있음. requestAnimationFrame으로 한 프레임 늦춰서
+  // 라이브러리 내부의 자동 정렬 동작이 다 끝난 뒤에 우리가 마지막으로 위치를 강제 고정한다.
   isUserScrolled = false;
-  _codeUpdating = true;
-  chart.timeScale().setVisibleLogicalRange({
-    from: Math.max(0, candles.length - 100),
-    to: candles.length + 4,
+  requestAnimationFrame(() => {
+    _codeUpdating = true;
+    chart.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, candles.length - 100),
+      to: candles.length - 1,
+    });
+    setTimeout(() => { _codeUpdating = false; }, 50);
   });
-  setTimeout(() => { _codeUpdating = false; }, 50);
 }
 
 function isLTF() {
