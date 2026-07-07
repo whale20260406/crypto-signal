@@ -626,7 +626,26 @@ function addBox(t1, t2, low, high, fillColor, lineColor, lw=2) {
   return { top: topLine, bot: botLine };
 }
 
-// ─── EQUAL HIGHS/LOWS (BSL/SSL) HELPER ─────────────────────
+// ─── SWING HIGH/LOW (구조 분석용) ───────────────────────────
+// 캔들 하나가 양옆 k개 캔들보다 고점/저점이 더 높거나/낮으면 "스윙 포인트"로 인정.
+// 이렇게 뽑은 스윙 포인트들의 순서를 비교해야 진짜 HH/HL(상승) vs LH/LL(하락) 구조를
+// 알 수 있음 — 예전엔 그냥 "30개 캔들 중 최고/최저가 어느 게 더 최근이냐"만 봐서,
+// 정상적인 상승 추세(최근일수록 고점이 갱신됨)를 오히려 "하락"으로 잘못 판정하던 버그가 있었음.
+function findSwings(data, k=2) {
+  const highs = [], lows = [];
+  for (let i=k; i<data.length-k; i++) {
+    let isHigh = true, isLow = true;
+    for (let j=1; j<=k; j++) {
+      if (data[i].high <= data[i-j].high || data[i].high <= data[i+j].high) isHigh = false;
+      if (data[i].low  >= data[i-j].low  || data[i].low  >= data[i+j].low ) isLow = false;
+    }
+    if (isHigh) highs.push({ idx: i, price: data[i].high });
+    if (isLow)  lows.push({ idx: i, price: data[i].low });
+  }
+  return { highs, lows };
+}
+
+
 // key가 'high'면 비슷한 높이의 고점들을(매수측 유동성 BSL), 'low'면 비슷한 저점들을
 // (매도측 유동성 SSL) tolerancePct(%) 오차 내에서 묶어 클러스터로 반환한다.
 function findEqualLevels(data, key, tolerancePct=0.08) {
@@ -736,14 +755,25 @@ function analyzeAndDraw(data) {
     });
   }
 
-  // ── 구조/바이어스 분석 (스윙 고저 기준) ────────────────────
+  // ── 구조/바이어스 분석 (실제 스윙 HH/HL vs LH/LL 비교) ──────
   const recent = data.slice(-30);
-  let hh=0, ll=Infinity, hhIdx=0, llIdx=0;
-  recent.forEach((c,i) => {
-    if (c.high>hh) { hh=c.high; hhIdx=i; }
-    if (c.low<ll)  { ll=c.low;  llIdx=i; }
+  let hh=0, ll=Infinity;
+  recent.forEach(c => {
+    if (c.high>hh) hh=c.high;
+    if (c.low<ll)  ll=c.low;
   });
-  const bias = llIdx > hhIdx ? '상승' : hhIdx > llIdx ? '하락' : '중립';
+  // OTE/EQ 계산엔 위의 hh/ll(스윙 구간 전체 범위)을 그대로 쓰고,
+  // 방향(상승/하락) 판단만 아래 스윙 포인트 비교로 새로 함.
+  const swingWindow = data.slice(-60);
+  const { highs: swHighs, lows: swLows } = findSwings(swingWindow, 2);
+  let bias = '중립';
+  if (swHighs.length>=2 && swLows.length>=2) {
+    const higherHigh = swHighs[swHighs.length-1].price > swHighs[swHighs.length-2].price;
+    const higherLow  = swLows[swLows.length-1].price  > swLows[swLows.length-2].price;
+    if (higherHigh && higherLow) bias = '상승';        // HH + HL = 정상 상승 구조 (BOS)
+    else if (!higherHigh && !higherLow) bias = '하락';  // LH + LL = 정상 하락 구조 (BOS)
+    else bias = higherLow ? '상승' : '하락';            // 구조 전환 중(CHoCH) - 더 최근에 깨진 쪽을 따라감
+  }
 
   // ── Premium/Discount 존 (OTE) ─────────────────────────
   // 스윙 저점~고점 구간의 50%(균형가) 및 61.8~79% 되돌림(최적 진입구간) 표시
