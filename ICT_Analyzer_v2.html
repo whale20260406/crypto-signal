@@ -343,7 +343,7 @@
     <span class="leg-label">약세 OB</span>
   </div>
   <div class="leg-item" id="leg-liq" onclick="toggleLayer('liq')">
-    <div class="leg-box" style="background:rgba(180,130,255,0.4);border:1px solid #b482ff"></div>
+    <div class="leg-box" style="background:linear-gradient(90deg, rgba(255,68,102,0.6) 50%, rgba(0,229,160,0.6) 50%);border:1px solid #666"></div>
     <span class="leg-label">BSL/SSL</span>
   </div>
   <div class="leg-item" id="leg-ote" onclick="toggleLayer('ote')">
@@ -657,8 +657,11 @@ function analyzeAndDraw(data) {
   // 박스(FVG/OB/OTE)를 얼마나 미래로 연장할지: 예전엔 무조건 "7일"이었는데,
   // 1분봉 기준 7일 = 캔들 1만 개 분량이라 실제 캔들이 화면 왼쪽 구석에 몰리고
   // 나머지 전부 빈 공간이 되는 심각한 버그였음. 타임프레임에 비례해서 8개 캔들 정도만 연장.
-  const tfSeconds = { '1m':60, '5m':300, '15m':900, '1h':3600, '4h':14400, '1d':86400 }[currentTF] || 3600;
-  const lastTime = data[data.length-1].time + tfSeconds*8;
+  // 박스(FVG/OB/OTE)가 미래로 조금이라도 연장되면, 그 끝점이 "마지막 캔들보다 오른쪽"의
+  // 새로운 시간대가 되어버려서, 차트가 오른쪽 끝에 붙어있을 때 그 새 지점을 따라가며
+  // 계속 조금씩 밀리는 문제가 있었음. 아예 연장하지 않고 마지막 캔들 시각에서 정확히
+  // 끝나도록 해서(=기존 데이터의 가장 오른쪽 지점과 동일), 시간 범위 자체가 넓어질 일이 없게 함.
+  const lastTime = data[data.length-1].time;
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
@@ -890,7 +893,7 @@ async function drawDailyWeekly(myToken) {
 
     dwLines.push(addPriceLine(yesterday.high, '#ffae00', 1, D, '전일 고가 PDH'));
     dwLines.push(addPriceLine(yesterday.low,  '#ffae00', 1, D, '전일 저가 PDL'));
-    dwLines.push(addPriceLine(today.open, '#8888ff', 1, D, '데일리 오픈'));
+    dwLines.push(addPriceLine(today.open, '#e0e0e0', 1, D, '데일리 오픈'));
 
     // 이번주 월요일(UTC 기준) 시가 찾기
     const now = new Date();
