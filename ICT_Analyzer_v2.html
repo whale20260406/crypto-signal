@@ -741,8 +741,8 @@ function analyzeAndDraw(data) {
   const eqHighs = findEqualLevels(liqWindow, 'high');
   const eqLows  = findEqualLevels(liqWindow, 'low');
   // 클러스터가 하나도 없으면(전부 제각각이면) fallback으로 최근 고/저 1개씩 사용
-  const bslLevels = eqHighs.length ? eqHighs.slice(-2) : [{price: Math.max(...liqWindow.map(c=>c.high)), count:1}];
-  const sslLevels = eqLows.length  ? eqLows.slice(-2)  : [{price: Math.min(...liqWindow.map(c=>c.low)),  count:1}];
+  const bslLevels = eqHighs.length ? eqHighs.slice(-1) : [{price: Math.max(...liqWindow.map(c=>c.high)), count:1}];
+  const sslLevels = eqLows.length  ? eqLows.slice(-1)  : [{price: Math.min(...liqWindow.map(c=>c.low)),  count:1}];
 
   if (layers.liq) {
     bslLevels.forEach(lv => {
