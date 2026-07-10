@@ -1136,6 +1136,12 @@ updateSessionBadges();
 setInterval(updateSessionBadges, 30000);
 updateClock();
 setInterval(updateClock, 1000);
+
+// 몇 초마다 FVG/OB/BSL·SSL 등을 자동으로 다시 그려서, 어쩌다 한 번씩 선이
+// 안 보이는 상황이 생겨도 사용자가 버튼을 눌러 새로고침할 필요 없이 자동 복구되게 함.
+setInterval(() => {
+  if (candles && candles.length) saveAndRestore(() => analyzeAndDraw(candles));
+}, 5000);
 </script>
 </body>
 </html>
