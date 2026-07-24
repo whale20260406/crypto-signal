@@ -407,7 +407,6 @@ let chart, candleSeries;
 let currentSymbol = 'BTCUSDT';
 let currentTF = '1h';
 let ws = null;
-let wsTrade = null; // kline은 초당 1번만 오는 제한이 있어서, 그 사이사이는 이 trade 스트림으로 매끄럽게 갱신
 let wsReconnectTimer = null;
 let candles = [];
 let htfOn = false;
@@ -509,7 +508,8 @@ async function fetchCandles(symbol, tf) {
   const tfMap = { '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d' };
   const interval = tfMap[tf] || '1h';
   const limit = 200;
-  const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  // 선물(USDT-M perpetual) 데이터 사용 — 스팟이 아니라 실제 선물 거래 기준 가격
+  const binanceUrl = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`;
 
   try {
@@ -1018,7 +1018,15 @@ function connectWS() {
   if (ws) { try { ws.onerror = null; ws.onclose = null; ws.onmessage = null; ws.close(); } catch(e){} ws = null; }
   _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
   const sym = mySymbol.toLowerCase();
-  const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${myTF}`);
+
+  // kline(캔들 확정용) + aggTrade(실시간 체결가 갱신용)를 하나의 소켓으로 합쳐서 구독.
+  // kline만 쓰면 바이낸스 서버가 초당 1번으로 묶어서 보내는 제한 때문에 화면이
+  // "뚝뚝 튀는" 느낌이 남 — aggTrade는 체결이 일어날 때마다 오므로 그 사이를 채워준다.
+  // (스팟 엔드포인트 유지 — 선물로 바꾸면 지금까지의 FVG/OB/BSL·SSL 값이 전부
+  //  선물 가격 기준으로 바뀌므로, 그건 원할 때 별도로 결정할 부분)
+  const streams = `${sym}@kline_${myTF}/${sym}@aggTrade`;
+  // 선물(USDT-M perpetual) 웹소켓 — 위 캔들 데이터랑 소스를 맞춤
+  const socket = new WebSocket(`wss://fstream.binance.com/stream?streams=${streams}`);
   ws = socket;
   socket.onopen = () => console.log('WS connected:', sym, myTF);
   // 재연결은 onclose 한 곳에서만, 딱 한 번만 예약한다.
@@ -1038,54 +1046,37 @@ function connectWS() {
   };
   socket.onmessage = (e) => {
     if (ws !== socket) return; // 이미 교체된 낡은 소켓이면 무시
-    const d = JSON.parse(e.data).k;
-    handleCandle({
-      time: d.t/1000,
-      open: parseFloat(d.o),
-      high: parseFloat(d.h),
-      low:  parseFloat(d.l),
-      close:parseFloat(d.c),
-      volume:parseFloat(d.v),
-    }, d.x);
-  };
-
-  // ── 실시간 체결(trade) 스트림 ─────────────────────────
-  // kline 스트림은 바이낸스 서버가 초당 1번으로 묶어서 보내는 제한이 있어서,
-  // 그것만 쓰면 화면이 "1초에 한 번씩 뚝뚝 튀는" 느낌이 남 (비겟 같은 다른 거래소가
-  // 딱 이런 식으로 느리게 느껴지는 것과 같은 원인). 체결마다 오는 trade 스트림을
-  // 추가로 구독해서, 그 사이사이 가격/캔들 종가를 더 자주 갱신해 매끄럽게 만든다.
-  if (wsTrade) { try { wsTrade.onerror = null; wsTrade.onclose = null; wsTrade.onmessage = null; wsTrade.close(); } catch(e){} wsTrade = null; }
-  const tradeSocket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@trade`);
-  wsTrade = tradeSocket;
-  tradeSocket.onmessage = (e) => {
-    if (wsTrade !== tradeSocket) return;
-    if (mySymbol !== currentSymbol || myTF !== currentTF) return;
-    const price = parseFloat(JSON.parse(e.data).p);
-    if (!price || !candles.length) return;
-    // 아직 진행 중인(닫히지 않은) 마지막 캔들의 종가만 실시간으로 살짝 갱신.
-    // 캔들 확정(닫힘)이나 배열 추가는 여전히 kline 스트림(onmessage 위)에서만 처리.
-    const last = candles[candles.length - 1];
-    const updated = {
-      time: last.time,
-      open: last.open,
-      high: Math.max(last.high, price),
-      low: Math.min(last.low, price),
-      close: price,
-      volume: last.volume,
-    };
-    _codeUpdating = true;
-    candleSeries.update(updated);
-    _codeUpdating = false;
-    updatePrice(updated);
-  };
-  tradeSocket.onerror = () => { if (wsTrade === tradeSocket) wsTrade = null; };
-  tradeSocket.onclose = () => {
-    if (wsTrade !== tradeSocket) return;
-    wsTrade = null;
-    if (mySymbol !== currentSymbol || myTF !== currentTF) return;
-    setTimeout(() => {
-      if (!wsTrade && mySymbol === currentSymbol && myTF === currentTF) connectWS();
-    }, 3000);
+    const msg = JSON.parse(e.data);
+    if (!msg.stream) return;
+    if (msg.stream.endsWith('@kline_' + myTF)) {
+      const d = msg.data.k;
+      handleCandle({
+        time: d.t/1000,
+        open: parseFloat(d.o),
+        high: parseFloat(d.h),
+        low:  parseFloat(d.l),
+        close:parseFloat(d.c),
+        volume:parseFloat(d.v),
+      }, d.x);
+    } else if (msg.stream.endsWith('@aggTrade')) {
+      const price = parseFloat(msg.data.p);
+      if (!price || !candles.length) return;
+      // 아직 진행 중인(닫히지 않은) 마지막 캔들의 종가만 실시간으로 살짝 갱신.
+      // 캔들 확정(닫힘)이나 배열 추가는 여전히 kline 메시지 쪽에서만 처리.
+      const last = candles[candles.length - 1];
+      const updated = {
+        time: last.time,
+        open: last.open,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+        close: price,
+        volume: last.volume,
+      };
+      _codeUpdating = true;
+      candleSeries.update(updated);
+      _codeUpdating = false;
+      updatePrice(updated);
+    }
   };
 }
 
