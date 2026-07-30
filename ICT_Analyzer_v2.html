@@ -354,6 +354,10 @@
     <div class="leg-box" style="background:rgba(255,174,0,0.4);border:1px solid #ffae00"></div>
     <span class="leg-label">전일/주간</span>
   </div>
+  <div class="leg-item" id="leg-structure" onclick="toggleLayer('structure')">
+    <div class="leg-box" style="background:rgba(255,200,0,0.4);border:1px solid #ffc800"></div>
+    <span class="leg-label">BOS/CHoCH</span>
+  </div>
 
   <div id="kzBadge" class="kz-badge"></div>
   <div id="amdBadge" class="amd-badge"></div>
@@ -414,7 +418,7 @@ let openPrice = null;
 let userScrollPos = null;  // 사용자 스크롤 위치 (픽셀)
 let isUserScrolled = false; // 사용자가 스크롤 했는지
 
-let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, ote: true, dw: true, judas: true };
+let layers = { fvgBull: true, fvgBear: true, obBull: true, obBear: true, liq: true, ote: true, dw: true, judas: true, structure: true };
 
 // overlay storage
 let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], liqLines=[];
@@ -648,6 +652,67 @@ function findSwings(data, k=2) {
   return { highs, lows };
 }
 
+// ─── BOS / CHoCH / IDM 마커 ─────────────────────────────
+// 스윙 고점·저점을 시간순으로 합쳐서, 직전 같은 종류(고점 vs 고점, 저점 vs 저점)의
+// 스윙과 비교한다. 그 방향으로 이미 추세가 진행 중이면 BOS(지속), 처음 반대로
+// 깨지는 순간이면 CHoCH(전환)로 표시. CHoCH 직전에 있던 반대 타입의 스윙(진짜
+// 전환을 만들기 전 낚였던 작은 자리)은 IDM(인듀스먼트)로 별도 표시한다.
+function computeStructureMarkers(data) {
+  if (!layers.structure || data.length < 20) { candleSeries.setMarkers([]); return; }
+  const window = data.slice(-150);
+  const offset = data.length - window.length;
+  const { highs, lows } = findSwings(window, 2);
+  const points = [
+    ...highs.map(h => ({ idx: h.idx, price: h.price, type: 'H' })),
+    ...lows.map(l => ({ idx: l.idx, price: l.price, type: 'L' })),
+  ].sort((a, b) => a.idx - b.idx);
+
+  const markers = [];
+  let lastHigh = null, lastLow = null, trend = null;
+  const chochPts = []; // 이 지점들 직전에서 IDM을 찾는다
+
+  points.forEach((p, pi) => {
+    const idx = p.idx + offset;
+    const t = data[idx].time;
+    if (p.type === 'H') {
+      if (lastHigh !== null && p.price > lastHigh) {
+        const isNewTrend = trend !== 'up';
+        trend = 'up';
+        markers.push({ time: t, position: 'aboveBar', color: isNewTrend ? '#ffc800' : '#00e5a0', shape: 'arrowUp', text: isNewTrend ? 'CHoCH' : 'BOS' });
+        if (isNewTrend) chochPts.push(pi);
+      }
+      lastHigh = p.price;
+    } else {
+      if (lastLow !== null && p.price < lastLow) {
+        const isNewTrend = trend !== 'down';
+        trend = 'down';
+        markers.push({ time: t, position: 'belowBar', color: isNewTrend ? '#ffc800' : '#ff4466', shape: 'arrowDown', text: isNewTrend ? 'CHoCH' : 'BOS' });
+        if (isNewTrend) chochPts.push(pi);
+      }
+      lastLow = p.price;
+    }
+  });
+
+  // IDM: 각 CHoCH 바로 앞에 있던 반대 타입 스윙 = 진짜 전환 전 낚였던 자리
+  chochPts.forEach(pi => {
+    const wantType = points[pi].type === 'H' ? 'L' : 'H';
+    for (let j = pi - 1; j >= 0; j--) {
+      if (points[j].type === wantType) {
+        const idx = points[j].idx + offset;
+        markers.push({
+          time: data[idx].time,
+          position: wantType === 'L' ? 'belowBar' : 'aboveBar',
+          color: '#8888ff', shape: 'circle', text: 'IDM',
+        });
+        break;
+      }
+    }
+  });
+
+  markers.sort((a, b) => a.time - b.time);
+  candleSeries.setMarkers(markers);
+}
+
 
 // key가 'high'면 비슷한 높이의 고점들을(매수측 유동성 BSL), 'low'면 비슷한 저점들을
 // (매도측 유동성 SSL) tolerancePct(%) 오차 내에서 묶어 클러스터로 반환한다.
@@ -867,6 +932,8 @@ function analyzeAndDraw(data) {
   const biasText = bias==='상승'?'매수':bias==='하락'?'매도':'중립';
   biasEl.textContent = biasText;
   biasEl.className = 'stat-val '+(bias==='상승'?'bull':bias==='하락'?'bear':'neutral');
+
+  computeStructureMarkers(data);
 }
 
 // ─── 4H OVERLAY ───────────────────────────────────────────
@@ -1144,7 +1211,7 @@ function toggleLayer(name) {
   const legMap = {
     fvgBull:'leg-fvg-bull', fvgBear:'leg-fvg-bear',
     obBull:'leg-ob-bull', obBear:'leg-ob-bear',
-    liq:'leg-liq', ote:'leg-ote', dw:'leg-dw',
+    liq:'leg-liq', ote:'leg-ote', dw:'leg-dw', structure:'leg-structure',
   };
   const el = document.getElementById(legMap[name]);
   if (el) el.classList.toggle('off', !layers[name]);
