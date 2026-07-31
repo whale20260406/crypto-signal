@@ -516,7 +516,9 @@ async function fetchCandles(symbol, tf) {
   // 문제가 있어서, 확실히 되는 스팟으로 되돌림. BTC 기준 스팟-선물 가격차는
   // 보통 아주 작아서(±0.1% 이내) 분석 용도로는 사실상 차이가 없음.
   const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`;
+  // 프록시가 응답을 캐싱해서 예전 데이터를 돌려주는 경우를 막기 위해 매번 다른 값을 붙임
+  // (PDH/PDL 같은 값이 짧은 시간 안에 다르게 나오는 문제의 원인일 가능성이 있어 예방)
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}&_cb=${Date.now()}`;
 
   try {
     let res = await fetch(binanceUrl);
