@@ -713,7 +713,12 @@ function connectWS() {
   if (ws) { try { ws.onerror = null; ws.onclose = null; ws.onmessage = null; ws.close(); } catch(e){} ws = null; }
   _lastCandleTime = candles.length ? candles[candles.length-1].time : 0;
   const sym = mySymbol.toLowerCase();
-  const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${sym}@kline_${myTF}`);
+
+  // kline(캔들 확정용) + aggTrade(실시간 체결가 갱신용)를 하나의 소켓으로 합쳐서 구독.
+  // kline만 쓰면 바이낸스 서버가 초당 1번으로 묶어서 보내는 제한 때문에 화면이
+  // "뚝뚝 튀는" 느낌이 남 — aggTrade는 체결이 일어날 때마다 오므로 그 사이를 채워준다.
+  const streams = `${sym}@kline_${myTF}/${sym}@aggTrade`;
+  const socket = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
   ws = socket;
   socket.onopen = () => console.log('WS connected:', sym, myTF);
   // 재연결은 onclose 한 곳에서만, 딱 한 번만 예약한다.
@@ -733,14 +738,39 @@ function connectWS() {
   };
   socket.onmessage = (e) => {
     if (ws !== socket) return; // 이미 교체된 낡은 소켓이면 무시
-    const d = JSON.parse(e.data).k;
-    handleCandle({
-      time: d.t/1000,
-      open: parseFloat(d.o),
-      high: parseFloat(d.h),
-      low:  parseFloat(d.l),
-      close:parseFloat(d.c),
-    }, d.x);
+    const msg = JSON.parse(e.data);
+    if (!msg.stream) return;
+    if (msg.stream.endsWith('@kline_' + myTF)) {
+      const d = msg.data.k;
+      handleCandle({
+        time: d.t/1000,
+        open: parseFloat(d.o),
+        high: parseFloat(d.h),
+        low:  parseFloat(d.l),
+        close:parseFloat(d.c),
+      }, d.x);
+    } else if (msg.stream.endsWith('@aggTrade')) {
+      const price = parseFloat(msg.data.p);
+      if (!price || !candles.length) return;
+      // 아직 진행 중인(닫히지 않은) 마지막 캔들의 종가만 실시간으로 살짝 갱신.
+      // 캔들 확정(닫힘)이나 배열 추가는 여전히 kline 메시지 쪽에서만 처리.
+      const last = candles[candles.length - 1];
+      const updated = {
+        time: last.time,
+        open: last.open,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+        close: price,
+      };
+      // 배열에도 즉시 반영해야 다음 aggTrade 틱이 "이미 찍힌 고저가"를 기준으로
+      // 계산함. 안 그러면 매번 낡은 high/low로 되돌아가 계산되면서 방금 찍힌
+      // wick(위/아래 꼬리)이 다음 틱에 사라지는 버그가 생김.
+      candles[candles.length - 1] = updated;
+      _codeUpdating = true;
+      candleSeries.update(updated);
+      _codeUpdating = false;
+      updatePrice(updated);
+    }
   };
 }
 
@@ -759,6 +789,10 @@ function handleCandle(candle, isClosed) {
     candles.push(candle);
     if (candles.length > 300) candles.shift();
     saveAndRestore(() => analyzeAndDraw(candles));
+  } else if (candles.length && candles[candles.length - 1].time === candle.time) {
+    // 아직 진행 중인 캔들이면, 배열의 마지막 캔들도 최신 고저가로 맞춰둔다.
+    // (aggTrade 틱이 이 값을 기준으로 다시 계산하므로 여기서도 동기화 필요)
+    candles[candles.length - 1] = candle;
   }
 }
 
