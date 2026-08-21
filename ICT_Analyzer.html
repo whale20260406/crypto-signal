@@ -482,6 +482,17 @@ async function loadChart() {
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   connectWS();
+
+  // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
+  // fitContent() 이후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가
+  // 있어서, 0.3초 뒤에 한 번 더 크기를 재확인하고 다시 맞춘다.
+  // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
+  setTimeout(() => {
+    if (myToken !== _loadToken) return;
+    const el = document.getElementById('chart');
+    chart.resize(el.clientWidth, el.clientHeight);
+    chart.timeScale().fitContent();
+  }, 300);
 }
 
 function isLTF() {
@@ -871,8 +882,17 @@ function toggleLayer(name) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
-initChart();
-loadChart();
+// initChart()가 실행되는 순간 브라우저 레이아웃이 아직 완전히 자리잡지
+// 않았을 수 있어서(플렉스 박스 크기 계산이 실제로 안정되기 전), 그 상태에서
+// 차트 크기를 측정하면 좁은 값으로 잘못 굳어버릴 수 있음. 두 번의
+// requestAnimationFrame으로 최소 한 번의 레이아웃+페인트 사이클이 끝난
+// 뒤에 시작하도록 미뤄서, 측정 시점의 크기가 항상 실제 최종 크기이도록 함.
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    initChart();
+    loadChart();
+  });
+});
 </script>
 </body>
 </html>
