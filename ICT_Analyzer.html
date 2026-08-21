@@ -57,6 +57,9 @@
     gap: 6px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    min-width: 0; /* 이게 없으면 flex 아이템이 내용물 크기 밑으로 안 줄어들어서
+                     overflow-x:auto가 무용지물이 되고, 대신 뒤에 있는
+                     tf-btns(1m~1D)가 화면 밖으로 밀려 잘리는 문제가 있었음 */
   }
   .symbol-btns::-webkit-scrollbar { display: none; }
 
