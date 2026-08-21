@@ -456,6 +456,11 @@ async function loadChart() {
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
+  // 시간봉을 바꿀 때마다 캔들 개수·기간이 완전히 달라지는데, 화면 범위를
+  // 다시 맞춰주지 않으면 barSpacing이 고정값(6px)이라 캔들 묶음이 화면
+  // 오른쪽에 쏠리고 왼쪽에 빈 공간이 남는 문제가 있었음. fitContent()로
+  // 매번 화면 폭에 맞게 다시 맞춰준다.
+  chart.timeScale().fitContent();
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   connectWS();
