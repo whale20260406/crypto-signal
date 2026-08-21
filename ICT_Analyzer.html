@@ -387,6 +387,21 @@ function initChart() {
     document.getElementById('chart').clientHeight
   ));
 
+  // createChart()는 생성되는 그 순간의 컨테이너 크기를 내부 캔버스 크기로
+  // 굳혀버리고, 이후로는 "브라우저 창 자체의 resize 이벤트"가 실제로 발생할
+  // 때만 다시 맞춰준다. 그런데 페이지가 막 로드되는 시점엔 flex 레이아웃이
+  // 아직 최종 크기로 자리잡기 전일 수 있어서, 그 순간에 좁게 굳어버리면
+  // 시간봉 버튼을 누르거나 새로고침을 해도(둘 다 window resize 이벤트가
+  // 아님) 절대 재계산되지 않아 캔들이 오른쪽으로 몰려 보이는 문제가 있었음.
+  // ResizeObserver는 "창 크기"가 아니라 "이 엘리먼트 자체의 실제 크기"가
+  // 바뀔 때마다 감지하므로, 레이아웃이 뒤늦게 자리잡는 경우까지 커버된다.
+  const chartEl = document.getElementById('chart');
+  const ro = new ResizeObserver(() => {
+    chart.resize(chartEl.clientWidth, chartEl.clientHeight);
+    chart.timeScale().fitContent();
+  });
+  ro.observe(chartEl);
+
   // 사용자가 차트 건드리면 위치 저장
   chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
     if (!_codeUpdating) {
