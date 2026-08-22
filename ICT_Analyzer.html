@@ -314,6 +314,7 @@
     <div class="price-main" id="priceMain">--</div>
     <div class="price-change" id="priceChange">--</div>
   </div>
+  <div id="debugInfo" style="position:absolute; top:4px; left:4px; z-index:999; background:rgba(0,0,0,0.75); color:#00ff88; font-family:monospace; font-size:11px; padding:4px 8px; border-radius:4px; pointer-events:none; white-space:pre; line-height:1.5;"></div>
   <div id="chart"></div>
 </div>
 
@@ -424,6 +425,8 @@ function saveAndRestore(fn) {
 }
 
 // ─── DATA ─────────────────────────────────────────────────
+let _debugFetchInfo = { source: '-', count: 0, error: null };
+
 async function fetchCandles(symbol, tf) {
   const tfMap = { '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d' };
   const interval = tfMap[tf] || '1h';
@@ -433,8 +436,10 @@ async function fetchCandles(symbol, tf) {
 
   try {
     let res = await fetch(binanceUrl);
-    if (!res.ok) throw new Error();
+    if (!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('bad shape');
+    _debugFetchInfo = { source: 'direct', count: data.length, error: null };
     return data.map(k => ({
       time: k[0]/1000,
       open: parseFloat(k[1]),
@@ -442,10 +447,12 @@ async function fetchCandles(symbol, tf) {
       low:  parseFloat(k[3]),
       close:parseFloat(k[4]),
     }));
-  } catch {
+  } catch (e1) {
     try {
       let res = await fetch(proxy);
       const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('bad shape');
+      _debugFetchInfo = { source: 'proxy', count: data.length, error: 'direct 실패: ' + e1.message };
       return data.map(k => ({
         time: k[0]/1000,
         open: parseFloat(k[1]),
@@ -453,7 +460,10 @@ async function fetchCandles(symbol, tf) {
         low:  parseFloat(k[3]),
         close:parseFloat(k[4]),
       }));
-    } catch { return []; }
+    } catch (e2) {
+      _debugFetchInfo = { source: '실패', count: 0, error: 'direct: ' + e1.message + ' / proxy: ' + e2.message };
+      return [];
+    }
   }
 }
 
@@ -471,6 +481,16 @@ async function loadChart() {
   // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
   if (myToken !== _loadToken) return;
   candles = fetched;
+  {
+    const el = document.getElementById('chart');
+    const dbg = document.getElementById('debugInfo');
+    if (dbg) {
+      dbg.textContent =
+        `캔들:${candles.length}  소스:${_debugFetchInfo.source}\n` +
+        `차트폭:${el.clientWidth}px  창폭:${window.innerWidth}px` +
+        (_debugFetchInfo.error ? `\n⚠ ${_debugFetchInfo.error}` : '');
+    }
+  }
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
@@ -492,6 +512,8 @@ async function loadChart() {
     const el = document.getElementById('chart');
     chart.resize(el.clientWidth, el.clientHeight);
     chart.timeScale().fitContent();
+    const dbg = document.getElementById('debugInfo');
+    if (dbg) dbg.textContent += `\n(0.3초후 차트폭:${el.clientWidth}px)`;
   }, 300);
 }
 
