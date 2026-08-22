@@ -427,7 +427,7 @@ function saveAndRestore(fn) {
 // ─── DATA ─────────────────────────────────────────────────
 let _debugFetchInfo = { source: '-', count: 0, error: null };
 
-async function fetchCandles(symbol, tf) {
+async function fetchCandlesOnce(symbol, tf) {
   const tfMap = { '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d' };
   const interval = tfMap[tf] || '1h';
   const limit = 200;
@@ -465,6 +465,20 @@ async function fetchCandles(symbol, tf) {
       return [];
     }
   }
+}
+
+// 새로고침 직후(콜드 스타트)엔 프록시가 불안정하거나 첫 요청이 유독 실패하는
+// 경우가 있어서, 받아온 캔들이 기대치(200개)보다 눈에 띄게 적으면 조금 있다가
+// 한 번 더 시도해본다. 데이터가 적게 오면 fitContent()가 "적은 데이터에 맞게"
+// 정상적으로 동작한 것뿐이라도, 화면엔 오른쪽에 몰려 보이는 것처럼 보일 수 있음.
+async function fetchCandles(symbol, tf) {
+  let result = await fetchCandlesOnce(symbol, tf);
+  if (result.length < 100) {
+    await new Promise(r => setTimeout(r, 500));
+    const retry = await fetchCandlesOnce(symbol, tf);
+    if (retry.length > result.length) result = retry;
+  }
+  return result;
 }
 
 // ─── LOAD CHART ───────────────────────────────────────────
@@ -507,14 +521,20 @@ async function loadChart() {
   // fitContent() 이후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가
   // 있어서, 0.3초 뒤에 한 번 더 크기를 재확인하고 다시 맞춘다.
   // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
-  setTimeout(() => {
-    if (myToken !== _loadToken) return;
-    const el = document.getElementById('chart');
-    chart.resize(el.clientWidth, el.clientHeight);
-    chart.timeScale().fitContent();
-    const dbg = document.getElementById('debugInfo');
-    if (dbg) dbg.textContent += `\n(0.3초후 차트폭:${el.clientWidth}px)`;
-  }, 300);
+  // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
+  // fitContent() 이후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가
+  // 있어서, 로드 후 몇 차례 더 크기를 재확인하고 다시 맞춘다.
+  // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
+  [300, 800, 1500].forEach(delay => {
+    setTimeout(() => {
+      if (myToken !== _loadToken) return;
+      const el = document.getElementById('chart');
+      chart.resize(el.clientWidth, el.clientHeight);
+      chart.timeScale().fitContent();
+      const dbg = document.getElementById('debugInfo');
+      if (dbg) dbg.textContent += `\n(${delay}ms후 차트폭:${el.clientWidth}px 캔들:${candles.length})`;
+    }, delay);
+  });
 }
 
 function isLTF() {
