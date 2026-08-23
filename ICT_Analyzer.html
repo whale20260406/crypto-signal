@@ -432,27 +432,27 @@ async function fetchCandlesOnce(symbol, tf) {
   const interval = tfMap[tf] || '1h';
   const limit = 200;
   const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}`;
 
-  try {
-    let res = await fetch(binanceUrl);
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json();
-    if (!Array.isArray(data)) throw new Error('bad shape');
-    _debugFetchInfo = { source: 'direct', count: data.length, error: null };
-    return data.map(k => ({
-      time: k[0]/1000,
-      open: parseFloat(k[1]),
-      high: parseFloat(k[2]),
-      low:  parseFloat(k[3]),
-      close:parseFloat(k[4]),
-    }));
-  } catch (e1) {
+  // api.binance.com은 브라우저 직접 호출 시 CORS로 막히는 경우가 흔하고,
+  // 무료 프록시는 하나만 쓰면 그 프록시 자체의 분당/시간당 한도에 걸릴 수
+  // 있음 (특히 지금처럼 새로고침을 반복 테스트한 경우). 서로 다른 무료
+  // 프록시 여러 개를 순서대로 시도해서, 하나가 막혀도 다음 걸로 넘어가게
+  // 한다. 각 URL 형식은 서비스마다 달라서 하나씩 시도해보고 실패하면 다음.
+  const attempts = [
+    { name: 'direct', url: binanceUrl },
+    { name: 'codetabs', url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(binanceUrl)}` },
+    { name: 'x2u', url: `https://cors.x2u.in/${binanceUrl}` },
+    { name: 'allorigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(binanceUrl)}` },
+  ];
+
+  const errors = [];
+  for (const attempt of attempts) {
     try {
-      let res = await fetch(proxy);
+      const res = await fetch(attempt.url);
+      if (!res.ok) throw new Error('http ' + res.status);
       const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('bad shape');
-      _debugFetchInfo = { source: 'proxy', count: data.length, error: 'direct 실패: ' + e1.message };
+      if (!Array.isArray(data) || !data.length) throw new Error('bad shape');
+      _debugFetchInfo = { source: attempt.name, count: data.length, error: errors.length ? errors.join(' | ') : null };
       return data.map(k => ({
         time: k[0]/1000,
         open: parseFloat(k[1]),
@@ -460,11 +460,12 @@ async function fetchCandlesOnce(symbol, tf) {
         low:  parseFloat(k[3]),
         close:parseFloat(k[4]),
       }));
-    } catch (e2) {
-      _debugFetchInfo = { source: '실패', count: 0, error: 'direct: ' + e1.message + ' / proxy: ' + e2.message };
-      return [];
+    } catch (e) {
+      errors.push(`${attempt.name}: ${e.message}`);
     }
   }
+  _debugFetchInfo = { source: '실패', count: 0, error: errors.join(' | ') };
+  return [];
 }
 
 // 새로고침 직후(콜드 스타트)엔 프록시가 불안정하거나 첫 요청이 유독 실패하는
