@@ -401,8 +401,7 @@ function initChart() {
   // 바뀔 때마다 감지하므로, 레이아웃이 뒤늦게 자리잡는 경우까지 커버된다.
   const chartEl = document.getElementById('chart');
   const ro = new ResizeObserver(() => {
-    chart.resize(chartEl.clientWidth, chartEl.clientHeight);
-    chart.timeScale().fitContent();
+    applyFit();
   });
   ro.observe(chartEl);
 
@@ -416,6 +415,25 @@ function initChart() {
 }
 
 let _codeUpdating = false;
+
+// fitContent()의 내부 계산을 더 이상 신뢰하지 않고, "차트 폭 ÷ 캔들 개수"를
+// 직접 계산해서 barSpacing으로 강제 적용한다. 진단 결과 차트폭 자체는
+// 정확한데도 캔들이 전체 폭의 일부에만 몰려 그려지는 현상이 있어서,
+// fitContent()가 내부적으로 다른 기준을 쓰고 있는 것으로 보임 — 그래서
+// 아예 그 계산을 우회한다.
+function applyFit() {
+  const el = document.getElementById('chart');
+  chart.resize(el.clientWidth, el.clientHeight);
+  if (candles.length > 0) {
+    const priceScaleWidth = 70; // 오른쪽 가격축이 대략 차지하는 폭(px), 대략값
+    const usablePx = Math.max(el.clientWidth - priceScaleWidth, 100);
+    const spacing = Math.max(2, Math.min(30, usablePx / (candles.length + 8)));
+    chart.timeScale().applyOptions({ barSpacing: spacing, rightOffset: 8 });
+    chart.timeScale().scrollToPosition(8, false);
+  } else {
+    chart.timeScale().fitContent();
+  }
+}
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
@@ -509,30 +527,29 @@ async function loadChart() {
   if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
-  // 시간봉을 바꿀 때마다 캔들 개수·기간이 완전히 달라지는데, 화면 범위를
-  // 다시 맞춰주지 않으면 barSpacing이 고정값(6px)이라 캔들 묶음이 화면
-  // 오른쪽에 쏠리고 왼쪽에 빈 공간이 남는 문제가 있었음. fitContent()로
-  // 매번 화면 폭에 맞게 다시 맞춰준다.
-  chart.timeScale().fitContent();
+  // barSpacing을 직접 계산해서 강제 적용 (fitContent() 내부 계산은 신뢰 안 함)
+  applyFit();
+  {
+    const dbg = document.getElementById('debugInfo');
+    if (dbg) {
+      const opts = chart.timeScale().options();
+      dbg.textContent += `\n적용된 barSpacing:${opts.barSpacing?.toFixed(2)}`;
+    }
+  }
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   connectWS();
 
   // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
-  // fitContent() 이후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가
-  // 있어서, 0.3초 뒤에 한 번 더 크기를 재확인하고 다시 맞춘다.
-  // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
-  // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
-  // fitContent() 이후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가
-  // 있어서, 로드 후 몇 차례 더 크기를 재확인하고 다시 맞춘다.
+  // 로드 후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가 있어서,
+  // 몇 차례 더 재확인하고 다시 맞춘다.
   // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
   [300, 800, 1500].forEach(delay => {
     setTimeout(() => {
       if (myToken !== _loadToken) return;
-      const el = document.getElementById('chart');
-      chart.resize(el.clientWidth, el.clientHeight);
-      chart.timeScale().fitContent();
+      applyFit();
       const dbg = document.getElementById('debugInfo');
+      const el = document.getElementById('chart');
       if (dbg) dbg.textContent += `\n(${delay}ms후 차트폭:${el.clientWidth}px 캔들:${candles.length})`;
     }, delay);
   });
