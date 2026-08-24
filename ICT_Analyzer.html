@@ -314,7 +314,6 @@
     <div class="price-main" id="priceMain">--</div>
     <div class="price-change" id="priceChange">--</div>
   </div>
-  <div id="debugInfo" style="position:absolute; top:4px; left:4px; z-index:999; background:rgba(0,0,0,0.75); color:#00ff88; font-family:monospace; font-size:11px; padding:4px 8px; border-radius:4px; pointer-events:none; white-space:pre; line-height:1.5;"></div>
   <div id="chart"></div>
 </div>
 
@@ -386,24 +385,13 @@ function initChart() {
     wickDownColor: '#ff4466',
   });
 
-  window.addEventListener('resize', () => chart.resize(
-    document.getElementById('chart').clientWidth,
-    document.getElementById('chart').clientHeight
-  ));
-
-  // createChart()는 생성되는 그 순간의 컨테이너 크기를 내부 캔버스 크기로
-  // 굳혀버리고, 이후로는 "브라우저 창 자체의 resize 이벤트"가 실제로 발생할
-  // 때만 다시 맞춰준다. 그런데 페이지가 막 로드되는 시점엔 flex 레이아웃이
-  // 아직 최종 크기로 자리잡기 전일 수 있어서, 그 순간에 좁게 굳어버리면
-  // 시간봉 버튼을 누르거나 새로고침을 해도(둘 다 window resize 이벤트가
-  // 아님) 절대 재계산되지 않아 캔들이 오른쪽으로 몰려 보이는 문제가 있었음.
-  // ResizeObserver는 "창 크기"가 아니라 "이 엘리먼트 자체의 실제 크기"가
-  // 바뀔 때마다 감지하므로, 레이아웃이 뒤늦게 자리잡는 경우까지 커버된다.
-  const chartEl = document.getElementById('chart');
-  const ro = new ResizeObserver(() => {
+  window.addEventListener('resize', () => {
+    chart.resize(
+      document.getElementById('chart').clientWidth,
+      document.getElementById('chart').clientHeight
+    );
     applyFit();
   });
-  ro.observe(chartEl);
 
   // 사용자가 차트 건드리면 위치 저장
   chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
@@ -416,10 +404,9 @@ function initChart() {
 
 let _codeUpdating = false;
 
-// fitContent()나 scrollToPosition() 같은 "알아서 맞춰주는" 함수를 전혀
-// 믿지 않고, 보여줄 범위를 인덱스로 직접, 명시적으로 지정한다.
-// (barSpacing만 바꾸고 scrollToPosition()에 맡겼던 이전 시도도 여전히
-// 안 맞았어서, 아예 범위 자체를 숫자로 못박아버리는 방식으로 바꿈)
+// v2 참고: 복잡하게 여러 번 재조정하지 않고 로드 시점에 한 번만 명시적으로
+// 범위를 지정한다. (fitContent()가 왜 안 맞았는지는 못 찾았지만, 대신
+// 범위를 좌표로 직접 못박으면 라이브러리의 내부 계산에 의존하지 않아도 됨)
 function applyFit() {
   const el = document.getElementById('chart');
   chart.resize(el.clientWidth, el.clientHeight);
@@ -428,9 +415,6 @@ function applyFit() {
     const usablePx = Math.max(el.clientWidth - priceScaleWidth, 100);
     const spacing = Math.max(2, Math.min(30, usablePx / (candles.length + 8)));
     chart.timeScale().applyOptions({ barSpacing: spacing, rightOffset: 8 });
-    // "몇 번째 캔들부터 몇 번째까지 보여줘"를 좌표(인덱스)로 직접 지정.
-    // 0번이 제일 오래된 캔들, candles.length-1이 제일 최신 캔들.
-    // 오른쪽에 8칸 여백을 더해서 to를 그만큼 늘려준다.
     chart.timeScale().setVisibleLogicalRange({
       from: 0,
       to: candles.length - 1 + 8,
@@ -519,40 +503,13 @@ async function loadChart() {
   // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
   if (myToken !== _loadToken) return;
   candles = fetched;
-  if (!candles.length) {
-    const dbg = document.getElementById('debugInfo');
-    if (dbg) dbg.textContent = `캔들:0 소스:${_debugFetchInfo.source} ${_debugFetchInfo.error || ''}`;
-    return;
-  }
+  if (!candles.length) return;
   openPrice = candles[0].open;
   candleSeries.setData(candles);
-  // barSpacing과 보여줄 범위를 직접 계산해서 강제 적용 (fitContent() 안 씀)
   applyFit();
   updatePrice(candles[candles.length-1]);
   analyzeAndDraw(candles);
   connectWS();
-  {
-    const el = document.getElementById('chart');
-    const dbg = document.getElementById('debugInfo');
-    if (dbg) {
-      const opts = chart.timeScale().options();
-      const range = chart.timeScale().getVisibleLogicalRange();
-      dbg.textContent =
-        `캔들:${candles.length} 소스:${_debugFetchInfo.source} 폭:${el.clientWidth}px ` +
-        `간격:${opts.barSpacing?.toFixed(1)} 범위:${range ? range.from.toFixed(0)+'~'+range.to.toFixed(0) : '-'}`;
-    }
-  }
-
-  // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
-  // 로드 후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가 있어서,
-  // 몇 차례 더 재확인하고 다시 맞춘다.
-  // (그 사이 다른 loadChart()가 새로 시작됐으면 이 재확인은 건너뜀)
-  [300, 800, 1500].forEach(delay => {
-    setTimeout(() => {
-      if (myToken !== _loadToken) return;
-      applyFit();
-    }, delay);
-  });
 }
 
 function isLTF() {
