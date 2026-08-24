@@ -416,20 +416,25 @@ function initChart() {
 
 let _codeUpdating = false;
 
-// fitContent()의 내부 계산을 더 이상 신뢰하지 않고, "차트 폭 ÷ 캔들 개수"를
-// 직접 계산해서 barSpacing으로 강제 적용한다. 진단 결과 차트폭 자체는
-// 정확한데도 캔들이 전체 폭의 일부에만 몰려 그려지는 현상이 있어서,
-// fitContent()가 내부적으로 다른 기준을 쓰고 있는 것으로 보임 — 그래서
-// 아예 그 계산을 우회한다.
+// fitContent()나 scrollToPosition() 같은 "알아서 맞춰주는" 함수를 전혀
+// 믿지 않고, 보여줄 범위를 인덱스로 직접, 명시적으로 지정한다.
+// (barSpacing만 바꾸고 scrollToPosition()에 맡겼던 이전 시도도 여전히
+// 안 맞았어서, 아예 범위 자체를 숫자로 못박아버리는 방식으로 바꿈)
 function applyFit() {
   const el = document.getElementById('chart');
   chart.resize(el.clientWidth, el.clientHeight);
   if (candles.length > 0) {
-    const priceScaleWidth = 70; // 오른쪽 가격축이 대략 차지하는 폭(px), 대략값
+    const priceScaleWidth = 70;
     const usablePx = Math.max(el.clientWidth - priceScaleWidth, 100);
     const spacing = Math.max(2, Math.min(30, usablePx / (candles.length + 8)));
     chart.timeScale().applyOptions({ barSpacing: spacing, rightOffset: 8 });
-    chart.timeScale().scrollToPosition(8, false);
+    // "몇 번째 캔들부터 몇 번째까지 보여줘"를 좌표(인덱스)로 직접 지정.
+    // 0번이 제일 오래된 캔들, candles.length-1이 제일 최신 캔들.
+    // 오른쪽에 8칸 여백을 더해서 to를 그만큼 늘려준다.
+    chart.timeScale().setVisibleLogicalRange({
+      from: 0,
+      to: candles.length - 1 + 8,
+    });
   } else {
     chart.timeScale().fitContent();
   }
@@ -514,31 +519,29 @@ async function loadChart() {
   // 기다리는 동안 더 최신 loadChart()가 시작됐다면 이 결과는 낡은 것이므로 버림
   if (myToken !== _loadToken) return;
   candles = fetched;
+  if (!candles.length) {
+    const dbg = document.getElementById('debugInfo');
+    if (dbg) dbg.textContent = `캔들:0 소스:${_debugFetchInfo.source} ${_debugFetchInfo.error || ''}`;
+    return;
+  }
+  openPrice = candles[0].open;
+  candleSeries.setData(candles);
+  // barSpacing과 보여줄 범위를 직접 계산해서 강제 적용 (fitContent() 안 씀)
+  applyFit();
+  updatePrice(candles[candles.length-1]);
+  analyzeAndDraw(candles);
+  connectWS();
   {
     const el = document.getElementById('chart');
     const dbg = document.getElementById('debugInfo');
     if (dbg) {
-      dbg.textContent =
-        `캔들:${candles.length}  소스:${_debugFetchInfo.source}\n` +
-        `차트폭:${el.clientWidth}px  창폭:${window.innerWidth}px` +
-        (_debugFetchInfo.error ? `\n⚠ ${_debugFetchInfo.error}` : '');
-    }
-  }
-  if (!candles.length) return;
-  openPrice = candles[0].open;
-  candleSeries.setData(candles);
-  // barSpacing을 직접 계산해서 강제 적용 (fitContent() 내부 계산은 신뢰 안 함)
-  applyFit();
-  {
-    const dbg = document.getElementById('debugInfo');
-    if (dbg) {
       const opts = chart.timeScale().options();
-      dbg.textContent += `\n적용된 barSpacing:${opts.barSpacing?.toFixed(2)}`;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      dbg.textContent =
+        `캔들:${candles.length} 소스:${_debugFetchInfo.source} 폭:${el.clientWidth}px ` +
+        `간격:${opts.barSpacing?.toFixed(1)} 범위:${range ? range.from.toFixed(0)+'~'+range.to.toFixed(0) : '-'}`;
     }
   }
-  updatePrice(candles[candles.length-1]);
-  analyzeAndDraw(candles);
-  connectWS();
 
   // 안전망: 웹폰트가 늦게 로드되어 상단 바 높이가 미세하게 바뀌는 등,
   // 로드 후에도 레이아웃이 뒤늦게 한 번 더 흔들리는 경우가 있어서,
@@ -548,9 +551,6 @@ async function loadChart() {
     setTimeout(() => {
       if (myToken !== _loadToken) return;
       applyFit();
-      const dbg = document.getElementById('debugInfo');
-      const el = document.getElementById('chart');
-      if (dbg) dbg.textContent += `\n(${delay}ms후 차트폭:${el.clientWidth}px 캔들:${candles.length})`;
     }, delay);
   });
 }
