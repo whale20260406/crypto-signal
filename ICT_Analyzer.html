@@ -574,7 +574,18 @@ function analyzeAndDraw(data) {
   clearMain();
   if (data.length < 5) return;
 
-  const lastTime = data[data.length-1].time + 86400*7; // 7일 연장
+  // 박스를 얼마나 오른쪽으로 연장할지: 예전엔 무조건 7일(86400*7초)을
+  // 더했는데, 이게 진짜 원인이었음 — 이 박스들은 캔들과 별도의 시리즈로
+  // 추가되고, 라이트웨이트차트는 화면의 모든 시리즈를 합쳐서 전체 시간축
+  // 범위를 잡음. 1시간봉 기준 7일 = 168칸이 추가로 필요해지는 셈이라,
+  // 실제 필요한 전체 폭(캔들 200개+168칸)이 저희가 간격을 계산할 때 쓴
+  // 기준(캔들 200개)보다 훨씬 커져서, 캔들이 실제보다 훨씬 좁은 공간에
+  // 눌려 그려지는 원인이 됐음. 대신 지금 캔들 간격 기준으로 몇 개 분량만
+  // 연장해서, 시간봉이 뭐든 비율이 항상 작게 유지되도록 한다.
+  const avgBarSec = data.length > 1
+    ? (data[data.length-1].time - data[0].time) / (data.length-1)
+    : 3600;
+  const lastTime = data[data.length-1].time + avgBarSec * 15;
   const D = LightweightCharts.LineStyle.Dashed;
   const S = LightweightCharts.LineStyle.Solid;
 
