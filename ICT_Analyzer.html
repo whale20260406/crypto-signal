@@ -840,6 +840,10 @@ function handleCandle(candle, isClosed) {
     candles.push(candle);
     if (candles.length > 300) candles.shift();
     saveAndRestore(() => analyzeAndDraw(candles));
+    // 새 캔들이 하나 생겼으니, 처음 로드할 때 딱 한 번만 맞춰놨던 범위도
+    // 같이 갱신해준다. 안 그러면 세션을 오래 켜둘수록(캔들이 계속
+    // 쌓일수록) 처음에 맞춰놓은 범위가 점점 낡은 상태로 남아서 어긋나게 됨.
+    applyFit();
   } else if (candles.length && candles[candles.length - 1].time === candle.time) {
     // 아직 진행 중인 캔들이면, 배열의 마지막 캔들도 최신 고저가로 맞춰둔다.
     // (aggTrade 틱이 이 값을 기준으로 다시 계산하므로 여기서도 동기화 필요)
