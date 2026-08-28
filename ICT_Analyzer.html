@@ -138,8 +138,44 @@
     flex: 1;
     position: relative;
     overflow: hidden;
+    min-width: 0;
   }
   #chart { width: 100%; height: 100%; }
+
+  .dual-row {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    flex-wrap: wrap; /* 화면이 너무 좁으면(폰) 좌우 대신 위아래로 쌓임 */
+  }
+  .dual-row #chart-container {
+    flex: 1 1 50%;
+    min-width: 260px; /* 이보다 좁아지면 아래로 줄바꿈 */
+  }
+  #chart-container2 {
+    flex: 1 1 50%;
+    min-width: 260px;
+    position: relative;
+    overflow: hidden;
+    border-left: 1px solid var(--border);
+  }
+  #chart2 { width: 100%; height: 100%; }
+  .pane2-tf {
+    position: absolute;
+    top: 6px; right: 6px; z-index: 10;
+    display: flex; gap: 4px;
+  }
+  .tf-btn2 {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+  }
+  .tf-btn2.active { color: var(--accent); border-color: var(--accent); }
 
   .bottom-panel {
     display: flex;
@@ -309,12 +345,30 @@
   </div>
 </div>
 
+<div class="dual-row">
 <div id="chart-container">
   <div class="price-overlay">
     <div class="price-main" id="priceMain">--</div>
     <div class="price-change" id="priceChange">--</div>
   </div>
   <div id="chart"></div>
+</div>
+
+<div id="chart-container2">
+  <div class="pane2-tf">
+    <button class="tf-btn2" onclick="changeTF2('1m',this)">1m</button>
+    <button class="tf-btn2 active" onclick="changeTF2('5m',this)">5m</button>
+    <button class="tf-btn2" onclick="changeTF2('15m',this)">15m</button>
+    <button class="tf-btn2" onclick="changeTF2('1h',this)">1H</button>
+    <button class="tf-btn2" onclick="changeTF2('4h',this)">4H</button>
+    <button class="tf-btn2" onclick="changeTF2('1d',this)">1D</button>
+  </div>
+  <div class="price-overlay">
+    <div class="price-main" id="priceMain2">--</div>
+    <div class="price-change" id="priceChange2">--</div>
+  </div>
+  <div id="chart2"></div>
+</div>
 </div>
 
 <div class="bottom-panel">
@@ -855,6 +909,7 @@ function changeSymbol(sym, btn) {
   btn.classList.add('active');
   currentSymbol = sym;
   loadChart();
+  if (typeof loadChart2 === 'function') loadChart2();
 }
 
 function changeTF(tf, btn) {
@@ -885,9 +940,341 @@ function toggleLayer(name) {
   saveAndRestore(() => analyzeAndDraw(candles));
 }
 
+function clearMain2() {
+  [...fvgBullSeries2,...fvgBearSeries2,...obBullSeries2,...obBearSeries2].forEach(s => {
+    if (s&&s.top) { try{chart2.removeSeries(s.top);}catch(e){} }
+    if (s&&s.bot) { try{chart2.removeSeries(s.bot);}catch(e){} }
+  });
+  fvgBullSeries2=[]; fvgBearSeries2=[]; obBullSeries2=[]; obBearSeries2=[];
+  liqLines2.forEach(l => { try{candleSeries2.removePriceLine(l);}catch(e){} });
+  liqLines2=[];
+}
+
+function clearHTF2() {
+  htf4HLines2.forEach(l => { try{candleSeries2.removePriceLine(l);}catch(e){} });
+  htf4HLines2=[];
+}
+
+function clearAll2() {
+  clearMain2();
+  clearHTF2();
+}
+
+// ─── PRICE LINE HELPER ────────────────────────────────────
+function addPriceLine2(price, color, width, style, label, labelVis=true) {
+  return candleSeries2.createPriceLine({
+    price, color,
+    lineWidth: width,
+    lineStyle: style,
+    axisLabelVisible: labelVis,
+    title: label,
+  });
+}
+
+// ─── BOX HELPER ───────────────────────────────────────────
+function addBox2(t1, t2, low, high, fillColor, lineColor, lw=2) {
+  const topLine = chart2.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
+  });
+  topLine.setData([{time:t1,value:high},{time:t2,value:high}]);
+
+  const botLine = chart2.addLineSeries({
+    color: lineColor, lineWidth: lw,
+    lineStyle: LightweightCharts.LineStyle.Solid,
+    lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: () => null,
+  });
+  botLine.setData([{time:t1,value:low},{time:t2,value:low}]);
+
+  return { top: topLine, bot: botLine };
+}
+
+// ─── ICT ANALYSIS ─────────────────────────────────────────
+function analyzeAndDraw2(data) {
+  clearMain2();
+  if (data.length < 5) return;
+
+  // 박스를 얼마나 오른쪽으로 연장할지: 예전엔 무조건 7일(86400*7초)을
+  // 더했는데, 이게 진짜 원인이었음 — 이 박스들은 캔들과 별도의 시리즈로
+  // 추가되고, 라이트웨이트차트는 화면의 모든 시리즈를 합쳐서 전체 시간축
+  // 범위를 잡음. 1시간봉 기준 7일 = 168칸이 추가로 필요해지는 셈이라,
+  // 실제 필요한 전체 폭(캔들 200개+168칸)이 저희가 간격을 계산할 때 쓴
+  // 기준(캔들 200개)보다 훨씬 커져서, 캔들이 실제보다 훨씬 좁은 공간에
+  // 눌려 그려지는 원인이 됐음. 대신 지금 캔들 간격 기준으로 몇 개 분량만
+  // 연장해서, 시간봉이 뭐든 비율이 항상 작게 유지되도록 한다.
+  const avgBarSec = data.length > 1
+    ? (data[data.length-1].time - data[0].time) / (data.length-1)
+    : 3600;
+  const lastTime = data[data.length-1].time + avgBarSec * 15;
+  const D = LightweightCharts.LineStyle.Dashed;
+  const S = LightweightCharts.LineStyle.Solid;
+
+  // ── FVG ───────────────────────────────────────────────
+  const fvgBull=[], fvgBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const p=data[i-1], n=data[i+1];
+    if (n.low > p.high) fvgBull.push({time:data[i].time, low:p.high, high:n.low});
+    if (n.high < p.low) fvgBear.push({time:data[i].time, low:n.high, high:p.low});
+  }
+
+  if (layers.fvgBull) {
+    fvgBull.slice(-3).forEach(f => {
+      const s = addBox2(f.time, lastTime, f.low, f.high, 'rgba(0,180,255,0.15)', '#00b4ff', 1);
+      fvgBullSeries2.push(s);
+    });
+  }
+  if (layers.fvgBear) {
+    fvgBear.slice(-3).forEach(f => {
+      const s = addBox2(f.time, lastTime, f.low, f.high, 'rgba(255,200,0,0.15)', '#ffc800', 1);
+      fvgBearSeries2.push(s);
+    });
+  }
+
+  // ── OB ────────────────────────────────────────────────
+  const obBull=[], obBear=[];
+  for (let i=1; i<data.length-1; i++) {
+    const c=data[i], n=data[i+1];
+    if (c.close<c.open && n.close>n.open && n.close>c.high) obBull.push(c);
+    if (c.close>c.open && n.close<n.open && n.close<c.low)  obBear.push(c);
+  }
+
+  // 현재가 아래 강세 OB
+  const curPrice = data[data.length-1].close;
+  const belowBull = obBull.filter(o=>o.high<curPrice).slice(-2);
+  const aboveBear = obBear.filter(o=>o.low>curPrice).slice(-2);
+
+  if (layers.obBull) {
+    belowBull.forEach(o => {
+      const s = addBox2(o.time, lastTime, o.low, o.high, 'rgba(0,229,160,0.15)', '#00e5a0', 2);
+      obBullSeries2.push(s);
+    });
+  }
+  if (layers.obBear) {
+    aboveBear.forEach(o => {
+      const s = addBox2(o.time, lastTime, o.low, o.high, 'rgba(255,68,102,0.15)', '#ff4466', 2);
+      obBearSeries2.push(s);
+    });
+  }
+
+  // ── 유동성 ────────────────────────────────────────────
+  const lows=[...data].sort((a,b)=>a.low-b.low).slice(0,3);
+  const highs=[...data].sort((a,b)=>b.high-a.high).slice(0,3);
+
+  if (layers.liq) {
+    highs.forEach(c => {
+      const l = addPriceLine2(c.high,'rgba(255,68,102,0.5)',1,LightweightCharts.LineStyle.Dashed,'↑ HH');
+      liqLines2.push(l);
+    });
+    lows.forEach(c => {
+      const l = addPriceLine2(c.low,'rgba(0,229,160,0.5)',1,LightweightCharts.LineStyle.Dashed,'↓ LL');
+      liqLines2.push(l);
+    });
+  }
+
+  // ── 구조/바이어스 분석 ─────────────────────────────────
+  const recent = data.slice(-30);
+  let hh=0, ll=Infinity, hhIdx=0, llIdx=0;
+  recent.forEach((c,i) => {
+    if (c.high>hh) { hh=c.high; hhIdx=i; }
+    if (c.low<ll)  { ll=c.low;  llIdx=i; }
+  });
+  const bias = llIdx > hhIdx ? '상승' : hhIdx > llIdx ? '하락' : '중립';
+
+}
+function connectWS2() {
+  // 이 소켓이 어떤 심볼/TF용인지 고정해두고, 나중에 currentSymbol/currentTF2가
+  // 바뀌어도 이 소켓의 콜백이 잘못된 재연결이나 낡은 데이터 반영을 하지 않게 함
+  const mySymbol = currentSymbol;
+  const myTF = currentTF2;
+
+  if (wsReconnectTimer2) { clearTimeout(wsReconnectTimer2); wsReconnectTimer2 = null; }
+  if (ws2) { try { ws2.onerror = null; ws2.onclose = null; ws2.onmessage = null; ws2.close(); } catch(e){} ws2 = null; }
+  _lastCandleTime2 = candles2.length ? candles2[candles2.length-1].time : 0;
+  const sym = mySymbol.toLowerCase();
+
+  // kline(캔들 확정용) + aggTrade(실시간 체결가 갱신용)를 하나의 소켓으로 합쳐서 구독.
+  // kline만 쓰면 바이낸스 서버가 초당 1번으로 묶어서 보내는 제한 때문에 화면이
+  // "뚝뚝 튀는" 느낌이 남 — aggTrade는 체결이 일어날 때마다 오므로 그 사이를 채워준다.
+  const streams = `${sym}@kline_${myTF}/${sym}@aggTrade`;
+  const socket = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+  ws2 = socket;
+  socket.onopen = () => console.log('WS connected:', sym, myTF);
+  // 재연결은 onclose 한 곳에서만, 딱 한 번만 예약한다.
+  // (onerror에서도 재연결을 걸면 브라우저가 error→close를 연달아 발생시켜
+  //  같은 실패에 재연결이 2개씩 겹쳐 걸리고, 그게 반복되면서 소켓이 계속
+  //  늘어나 캔들이 여러 스트림에서 따로 갱신되는 "차트 두 개" 버그가 났었음)
+  socket.onerror = () => { if (ws2 === socket) ws2 = null; };
+  socket.onclose = () => {
+    if (ws2 !== socket) return; // 이미 다른 소켓으로 교체된 뒤라면 무시
+    ws2 = null;
+    // 그 사이 심볼/TF가 바뀌었으면 이 소켓 재연결은 의미 없음 (새 소켓이 이미 연결됨)
+    if (mySymbol !== currentSymbol || myTF !== currentTF2) return;
+    wsReconnectTimer2 = setTimeout(() => {
+      wsReconnectTimer2 = null;
+      if (!ws2 && mySymbol === currentSymbol && myTF === currentTF2) connectWS2();
+    }, 3000);
+  };
+  socket.onmessage = (e) => {
+    if (ws2 !== socket) return; // 이미 교체된 낡은 소켓이면 무시
+    const msg = JSON.parse(e.data);
+    if (!msg.stream) return;
+    if (msg.stream.endsWith('@kline_' + myTF)) {
+      const d = msg.data.k;
+      handleCandle2({
+        time: d.t/1000,
+        open: parseFloat(d.o),
+        high: parseFloat(d.h),
+        low:  parseFloat(d.l),
+        close:parseFloat(d.c),
+      }, d.x);
+    } else if (msg.stream.endsWith('@aggTrade')) {
+      const price = parseFloat(msg.data.p);
+      if (!price || !candles2.length) return;
+      // 아직 진행 중인(닫히지 않은) 마지막 캔들의 종가만 실시간으로 살짝 갱신.
+      // 캔들 확정(닫힘)이나 배열 추가는 여전히 kline 메시지 쪽에서만 처리.
+      const last = candles2[candles2.length - 1];
+      const updated = {
+        time: last.time,
+        open: last.open,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+        close: price,
+      };
+      // 배열에도 즉시 반영해야 다음 aggTrade 틱이 "이미 찍힌 고저가"를 기준으로
+      // 계산함. 안 그러면 매번 낡은 high/low로 되돌아가 계산되면서 방금 찍힌
+      // wick(위/아래 꼬리)이 다음 틱에 사라지는 버그가 생김.
+      candles2[candles2.length - 1] = updated;
+      _codeUpdating2 = true;
+      candleSeries2.update(updated);
+      _codeUpdating2 = false;
+      updatePrice2(updated);
+    }
+  };
+}
+
+let _lastCandleTime2 = 0;
+function handleCandle2(candle, isClosed) {
+  // 과거 시간 캔들이거나 비정상 데이터면 무시
+  if (candle.time < _lastCandleTime2) return;
+  if (!candle.open || !candle.high || !candle.low || !candle.close) return;
+  if (candle.high < candle.low) return;
+  _lastCandleTime2 = candle.time;
+  _codeUpdating2 = true;
+  candleSeries2.update(candle);
+  _codeUpdating2 = false;
+  updatePrice2(candle);
+  if (isClosed) {
+    candles2.push(candle);
+    if (candles2.length > 300) candles2.shift();
+    saveAndRestore2(() => analyzeAndDraw2(candles2));
+  } else if (candles2.length && candles2[candles2.length - 1].time === candle.time) {
+    // 아직 진행 중인 캔들이면, 배열의 마지막 캔들도 최신 고저가로 맞춰둔다.
+    // (aggTrade 틱이 이 값을 기준으로 다시 계산하므로 여기서도 동기화 필요)
+    candles2[candles2.length - 1] = candle;
+  }
+}
+// ════════════════════════════════════════════════════════
+// PANE 2 (비교용 두 번째 창) — 메인 차트 코드는 절대 건드리지 않고
+// 완전히 독립된 변수/함수로만 구성. 심볼은 메인이랑 같이 쓰되
+// 시간봉은 따로 고를 수 있게 함.
+// ════════════════════════════════════════════════════════
+let chart2, candleSeries2;
+let currentTF2 = '5m';
+let candles2 = [];
+let ws2 = null;
+let wsReconnectTimer2 = null;
+let openPrice2 = null;
+let userScrollPos2 = null;
+let isUserScrolled2 = false;
+let _codeUpdating2 = false;
+let fvgBullSeries2=[], fvgBearSeries2=[], obBullSeries2=[], obBearSeries2=[], liqLines2=[];
+let htf4HLines2 = [];
+
+function saveAndRestore2(fn) {
+  _codeUpdating2 = true;
+  fn();
+  setTimeout(() => { _codeUpdating2 = false; }, 50);
+}
+
+function initChart2() {
+  chart2 = LightweightCharts.createChart(document.getElementById('chart2'), {
+    layout: { background: { color: '#0a0a0f' }, textColor: '#c8c8e0' },
+    grid: { vertLines: { color: '#1a1a2a' }, horzLines: { color: '#1a1a2a' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#1e1e2e' },
+    timeScale: { borderColor: '#1e1e2e', timezone: 'Asia/Seoul', rightOffset: 0, barSpacing: 6, lockVisibleTimeRangeOnResize: true, shiftVisibleRangeOnNewBar: false, fixLeftEdge: false, fixRightEdge: false },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  candleSeries2 = chart2.addCandlestickSeries({
+    upColor: '#00e5a0',
+    downColor: '#ff4466',
+    borderUpColor: '#00e5a0',
+    borderDownColor: '#ff4466',
+    wickUpColor: '#00e5a0',
+    wickDownColor: '#ff4466',
+  });
+
+  window.addEventListener('resize', () => chart2.resize(
+    document.getElementById('chart2').clientWidth,
+    document.getElementById('chart2').clientHeight
+  ));
+
+  chart2.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    if (!_codeUpdating2) {
+      userScrollPos2 = chart2.timeScale().getVisibleLogicalRange();
+      isUserScrolled2 = true;
+    }
+  });
+}
+
+let _loadToken2 = 0;
+async function loadChart2() {
+  const myToken = ++_loadToken2;
+  clearAll2();
+  const fetched = await fetchCandles(currentSymbol, currentTF2);
+  if (myToken !== _loadToken2) return;
+  candles2 = fetched;
+  if (!candles2.length) return;
+  openPrice2 = candles2[0].open;
+  candleSeries2.setData(candles2);
+  updatePrice2(candles2[candles2.length-1]);
+  analyzeAndDraw2(candles2);
+  connectWS2();
+}
+
+function updatePrice2(candle) {
+  const el = document.getElementById('priceMain2');
+  const chEl = document.getElementById('priceChange2');
+  if (!el || !chEl) return;
+  const price = candle.close;
+  el.textContent = price > 1000
+    ? price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+    : price.toFixed(4);
+  if (openPrice2) {
+    const chg = ((price-openPrice2)/openPrice2*100).toFixed(2);
+    chEl.textContent = (chg>=0?'+':'')+chg+'%';
+    chEl.style.color = chg>=0?'#00e5a0':'#ff4466';
+  }
+}
+
+function changeTF2(tf, btn) {
+  if (tf === currentTF2) return;
+  document.querySelectorAll('.tf-btn2').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentTF2 = tf;
+  loadChart2();
+}
+
 // ─── INIT ─────────────────────────────────────────────────
 initChart();
 loadChart();
+initChart2();
+loadChart2();
 </script>
 </body>
 </html>
