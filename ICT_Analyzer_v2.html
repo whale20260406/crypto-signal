@@ -762,29 +762,47 @@ function analyzeAndDraw(data) {
   const fvgBull=[], fvgBear=[];
   for (let i=1; i<data.length-1; i++) {
     const p=data[i-1], n=data[i+1];
-    if (n.low > p.high) fvgBull.push({time:data[i].time, low:p.high, high:n.low});
-    if (n.high < p.low) fvgBear.push({time:data[i].time, low:n.high, high:p.low});
+    if (n.low > p.high) fvgBull.push({time:data[i].time, low:p.high, high:n.low, idx:i});
+    if (n.high < p.low) fvgBear.push({time:data[i].time, low:n.high, high:p.low, idx:i});
   }
 
+  // 이미 메워진 FVG는 더 이상 유효한 불균형이 아닌데도 계속 그리고
+  // 있었음. 형성된 이후 캔들 중 하나라도 갭 반대편까지 가격이 닿았으면
+  // 메워진 것으로 보고 제외한다.
+  function isFilled(fvg, isBull) {
+    for (let j = fvg.idx + 2; j < data.length; j++) {
+      if (isBull && data[j].low <= fvg.low) return true;
+      if (!isBull && data[j].high >= fvg.high) return true;
+    }
+    return false;
+  }
+  const fvgBullOpen = fvgBull.filter(f => !isFilled(f, true));
+  const fvgBearOpen = fvgBear.filter(f => !isFilled(f, false));
+
   if (layers.fvgBull) {
-    fvgBull.slice(-3).forEach(f => {
+    fvgBullOpen.slice(-3).forEach(f => {
       const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(0,180,255,0.15)', '#00b4ff', 1);
       fvgBullSeries.push(s);
     });
   }
   if (layers.fvgBear) {
-    fvgBear.slice(-3).forEach(f => {
+    fvgBearOpen.slice(-3).forEach(f => {
       const s = addBox(f.time, lastTime, f.low, f.high, 'rgba(255,200,0,0.15)', '#ffc800', 1);
       fvgBearSeries.push(s);
     });
   }
 
   // ── OB ────────────────────────────────────────────────
+  // "음봉 다음 양봉이 고점 돌파"만으로는 흔한 반등도 다 잡혀서 오더블록이라
+  // 부르기 민망했음. 그 돌파 캔들의 몸통이 최근 평균보다 확실히 커야
+  // (=임펄스/변위) 기관 개입으로 볼 근거가 있다고 보고 필터 추가.
+  const avgBody = data.slice(-20).reduce((s,c)=>s+Math.abs(c.close-c.open),0) / Math.min(20,data.length);
   const obBull=[], obBear=[];
   for (let i=1; i<data.length-1; i++) {
     const c=data[i], n=data[i+1];
-    if (c.close<c.open && n.close>n.open && n.close>c.high) obBull.push(c);
-    if (c.close>c.open && n.close<n.open && n.close<c.low)  obBear.push(c);
+    const displacement = Math.abs(n.close-n.open) > avgBody * 1.5;
+    if (c.close<c.open && n.close>n.open && n.close>c.high && displacement) obBull.push(c);
+    if (c.close>c.open && n.close<n.open && n.close<c.low  && displacement) obBear.push(c);
   }
 
   // 현재가 아래 강세 OB
@@ -910,18 +928,22 @@ function analyzeAndDraw(data) {
   }
 
   // 신호
+  // 예전엔 "현재가 아래 강세OB + 최근 바이어스 상승"만 맞으면 바로 매수
+  // 배지가 떴음(손절/목표/킬존/변위 확인 없음). 위에서 OB 변위 필터를
+  // 넣었고, 여기에 "지금이 킬존 시간대(currentZones.anyKZ)"까지 같이
+  // 맞아야 신호를 띄우도록 게이트를 건다.
   const sig = document.getElementById('signalBadge');
   sig.className = 'signal-badge';
-  if (belowBull.length && bias==='상승') {
+  if (currentZones.anyKZ && belowBull.length && bias==='상승') {
     sig.classList.add('show','buy'); sig.textContent='● 매수';
-  } else if (aboveBear.length && bias==='하락') {
+  } else if (currentZones.anyKZ && aboveBear.length && bias==='하락') {
     sig.classList.add('show','sell'); sig.textContent='● 매도';
   } else {
     sig.classList.add('show','wait'); sig.textContent='⏳ 대기';
   }
 
   // 하단 스탯
-  document.getElementById('statFVG').textContent = fvgBull.length+fvgBear.length;
+  document.getElementById('statFVG').textContent = fvgBullOpen.length+fvgBearOpen.length;
   document.getElementById('statOB').textContent = obBull.length+obBear.length;
   document.getElementById('statLiq').textContent = bslLevels.length+sslLevels.length;
 
