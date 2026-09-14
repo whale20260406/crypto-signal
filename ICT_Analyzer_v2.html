@@ -374,6 +374,8 @@
     <div class="price-main" id="priceMain">--</div>
     <div class="price-change" id="priceChange">--</div>
   </div>
+  <div id="premiumZone" style="position:absolute; pointer-events:none; background:rgba(255,68,102,0.14); display:none; z-index:1;"></div>
+  <div id="discountZone" style="position:absolute; pointer-events:none; background:rgba(0,229,160,0.14); display:none; z-index:1;"></div>
   <div id="chart"></div>
   <div id="clockOverlay">--:--:-- KST</div>
 </div>
@@ -425,7 +427,7 @@ let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], liqLin
 // 4H overlay (priceLine 기반)
 let htf4HLines = [];
 // OTE(Premium/Discount) 존
-let oteBoxes=[], oteLines=[], pdZones=[];
+let oteBoxes=[], oteLines=[];
 // 전일/주간 레벨 (PDH/PDL, 데일리/위클리 오픈)
 let dwLines=[];
 // 현재 세션 상태 (킬존/AMD/실버불릿) - updateSessionBadges()에서 갱신, judas 판정에서 재사용
@@ -475,21 +477,70 @@ function initChart() {
     wickDownColor: '#ff4466',
   });
 
-  window.addEventListener('resize', () => chart.resize(
-    document.getElementById('chart').clientWidth,
-    document.getElementById('chart').clientHeight
-  ));
+  window.addEventListener('resize', () => {
+    chart.resize(
+      document.getElementById('chart').clientWidth,
+      document.getElementById('chart').clientHeight
+    );
+    updatePDZoneDivs();
+  });
 
-  // 사용자가 차트 건드리면 위치 저장
+  // 사용자가 차트 건드리면 위치 저장 + 프리미엄/디스카운트 구역도 같이 재배치
+  // (캔버스로 색칠하면 격자선까지 가려버리는 문제가 있어서, 대신 DOM
+  // 레이어를 가격/시간 좌표에 맞춰 직접 위치·크기를 계산해서 움직여준다.
+  // 스크롤/줌 할 때마다 좌표가 바뀌니 매번 다시 계산해야 함)
   chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
     if (!_codeUpdating) {
       userScrollPos = chart.timeScale().getVisibleLogicalRange();
       isUserScrolled = true;
     }
+    updatePDZoneDivs();
   });
 }
 
 let _codeUpdating = false;
+let _pdBounds = null; // {hh, eq, ll, t1} — analyzeAndDraw()에서 갱신
+
+// 프리미엄/디스카운트 DOM 레이어를 현재 화면 좌표에 맞춰 다시 그린다.
+function updatePDZoneDivs() {
+  const premiumEl = document.getElementById('premiumZone');
+  const discountEl = document.getElementById('discountZone');
+  if (!premiumEl || !discountEl) return;
+  if (!_pdBounds || !chart || !candleSeries) {
+    premiumEl.style.display = 'none';
+    discountEl.style.display = 'none';
+    return;
+  }
+  const { hh, eq, ll, t1 } = _pdBounds;
+  const yHH = candleSeries.priceToCoordinate(hh);
+  const yEQ = candleSeries.priceToCoordinate(eq);
+  const yLL = candleSeries.priceToCoordinate(ll);
+  const xStart = chart.timeScale().timeToCoordinate(t1);
+  const chartEl = document.getElementById('chart');
+  if (yHH==null || yEQ==null || yLL==null || xStart==null || !chartEl) {
+    premiumEl.style.display = 'none';
+    discountEl.style.display = 'none';
+    return;
+  }
+  const left = Math.max(xStart, 0);
+  const width = chartEl.clientWidth - left;
+  if (width <= 0) {
+    premiumEl.style.display = 'none';
+    discountEl.style.display = 'none';
+    return;
+  }
+  premiumEl.style.display = 'block';
+  premiumEl.style.left = left + 'px';
+  premiumEl.style.top = yHH + 'px';
+  premiumEl.style.width = width + 'px';
+  premiumEl.style.height = Math.max(yEQ - yHH, 0) + 'px';
+
+  discountEl.style.display = 'block';
+  discountEl.style.left = left + 'px';
+  discountEl.style.top = yEQ + 'px';
+  discountEl.style.width = width + 'px';
+  discountEl.style.height = Math.max(yLL - yEQ, 0) + 'px';
+}
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
 function saveAndRestore(fn) {
@@ -583,8 +634,8 @@ function clearMain() {
     if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
   });
   fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; oteBoxes=[];
-  pdZones.forEach(s => { try{chart.removeSeries(s);}catch(e){} });
-  pdZones=[];
+  _pdBounds = null;
+  updatePDZoneDivs();
   [...liqLines,...oteLines].forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
   liqLines=[]; oteLines=[];
 }
@@ -875,42 +926,18 @@ function analyzeAndDraw(data) {
     const range = hh - ll;
     const t1 = recent[0].time, t2 = lastTime;
     const eq = ll + range*0.5;
+    oteLines.push(addPriceLine(hh, 'rgba(255,68,102,0.6)', 1, D, '스윙 고점(프리미엄 상단)'));
     oteLines.push(addPriceLine(eq, 'rgba(200,200,224,0.5)', 1, D, 'EQ 50%'));
+    oteLines.push(addPriceLine(ll, 'rgba(0,229,160,0.6)', 1, D, '스윙 저점(디스카운트 하단)'));
 
-    // 프리미엄/디스카운트 배경색.
-    // Area 시리즈는 "선 값 ~ 화면 맨 아래"까지 무한정 채워지는 방식이라
-    // ll에서 뚝 끊기지가 않음(처음 시도했을 때 디스카운트가 끝없이
-    // 아래로 이어지는 문제로 나타났음). 그래서 3겹으로 쌓는다:
-    // ① hh부터 빨간색으로 아래까지 채움 → ② eq부터 초록색으로 덮어씀
-    // (①의 eq~바닥 부분을 가림 → hh~eq만 빨갛게 남음) → ③ ll부터
-    // 배경색으로 한 번 더 덮어씀(②의 ll~바닥 부분을 가려서 초록도
-    // ll에서 끝나 보이게 함).
-    const premiumArea = chart.addAreaSeries({
-      topColor: 'rgba(255,68,102,0.14)', bottomColor: 'rgba(255,68,102,0.14)',
-      lineColor: 'rgba(255,68,102,0)', lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-      autoscaleInfoProvider: () => null,
-    });
-    premiumArea.setData([{time:t1,value:hh},{time:t2,value:hh}]);
-    pdZones.push(premiumArea);
-
-    const discountArea = chart.addAreaSeries({
-      topColor: 'rgba(0,229,160,0.14)', bottomColor: 'rgba(0,229,160,0.14)',
-      lineColor: 'rgba(0,229,160,0)', lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-      autoscaleInfoProvider: () => null,
-    });
-    discountArea.setData([{time:t1,value:eq},{time:t2,value:eq}]);
-    pdZones.push(discountArea);
-
-    const maskArea = chart.addAreaSeries({
-      topColor: '#0a0a0f', bottomColor: '#0a0a0f',
-      lineColor: 'rgba(10,10,15,0)', lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-      autoscaleInfoProvider: () => null,
-    });
-    maskArea.setData([{time:t1,value:ll},{time:t2,value:ll}]);
-    pdZones.push(maskArea);
+    // 프리미엄/디스카운트 배경.
+    // Area 시리즈로 캔버스에 직접 칠하면 격자선까지 같이 가려지는
+    // 문제가 있어서, 실제 가격/시간을 화면 좌표로 변환한 뒤 그 위에
+    // 얹는 별도 DOM 레이어(#premiumZone, #discountZone)로 대체함.
+    // 좌표는 updatePDZoneDivs()가 계산해서 위치를 맞춰줌 — 스크롤/줌
+    // 할 때마다 새로 계산되므로 항상 정확한 가격대에 붙어있음.
+    _pdBounds = { hh, eq, ll, t1 };
+    updatePDZoneDivs();
 
     // 상승 바이어스면 저점 쪽(디스카운트) OTE, 하락 바이어스면 고점 쪽(프리미엄) OTE
     let oteLow, oteHigh;
