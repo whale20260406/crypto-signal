@@ -425,7 +425,7 @@ let fvgBullSeries=[], fvgBearSeries=[], obBullSeries=[], obBearSeries=[], liqLin
 // 4H overlay (priceLine 기반)
 let htf4HLines = [];
 // OTE(Premium/Discount) 존
-let oteBoxes=[], oteLines=[];
+let oteBoxes=[], oteLines=[], pdZones=[];
 // 전일/주간 레벨 (PDH/PDL, 데일리/위클리 오픈)
 let dwLines=[];
 // 현재 세션 상태 (킬존/AMD/실버불릿) - updateSessionBadges()에서 갱신, judas 판정에서 재사용
@@ -583,6 +583,8 @@ function clearMain() {
     if (s&&s.bot) { try{chart.removeSeries(s.bot);}catch(e){} }
   });
   fvgBullSeries=[]; fvgBearSeries=[]; obBullSeries=[]; obBearSeries=[]; oteBoxes=[];
+  pdZones.forEach(s => { try{chart.removeSeries(s);}catch(e){} });
+  pdZones=[];
   [...liqLines,...oteLines].forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
   liqLines=[]; oteLines=[];
 }
@@ -874,6 +876,41 @@ function analyzeAndDraw(data) {
     const t1 = recent[0].time, t2 = lastTime;
     const eq = ll + range*0.5;
     oteLines.push(addPriceLine(eq, 'rgba(200,200,224,0.5)', 1, D, 'EQ 50%'));
+
+    // 프리미엄/디스카운트 배경색.
+    // Area 시리즈는 "선 값 ~ 화면 맨 아래"까지 무한정 채워지는 방식이라
+    // ll에서 뚝 끊기지가 않음(처음 시도했을 때 디스카운트가 끝없이
+    // 아래로 이어지는 문제로 나타났음). 그래서 3겹으로 쌓는다:
+    // ① hh부터 빨간색으로 아래까지 채움 → ② eq부터 초록색으로 덮어씀
+    // (①의 eq~바닥 부분을 가림 → hh~eq만 빨갛게 남음) → ③ ll부터
+    // 배경색으로 한 번 더 덮어씀(②의 ll~바닥 부분을 가려서 초록도
+    // ll에서 끝나 보이게 함).
+    const premiumArea = chart.addAreaSeries({
+      topColor: 'rgba(255,68,102,0.14)', bottomColor: 'rgba(255,68,102,0.14)',
+      lineColor: 'rgba(255,68,102,0)', lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      autoscaleInfoProvider: () => null,
+    });
+    premiumArea.setData([{time:t1,value:hh},{time:t2,value:hh}]);
+    pdZones.push(premiumArea);
+
+    const discountArea = chart.addAreaSeries({
+      topColor: 'rgba(0,229,160,0.14)', bottomColor: 'rgba(0,229,160,0.14)',
+      lineColor: 'rgba(0,229,160,0)', lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      autoscaleInfoProvider: () => null,
+    });
+    discountArea.setData([{time:t1,value:eq},{time:t2,value:eq}]);
+    pdZones.push(discountArea);
+
+    const maskArea = chart.addAreaSeries({
+      topColor: '#0a0a0f', bottomColor: '#0a0a0f',
+      lineColor: 'rgba(10,10,15,0)', lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      autoscaleInfoProvider: () => null,
+    });
+    maskArea.setData([{time:t1,value:ll},{time:t2,value:ll}]);
+    pdZones.push(maskArea);
 
     // 상승 바이어스면 저점 쪽(디스카운트) OTE, 하락 바이어스면 고점 쪽(프리미엄) OTE
     let oteLow, oteHigh;
