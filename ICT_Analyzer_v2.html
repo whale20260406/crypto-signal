@@ -920,9 +920,11 @@ function analyzeAndDraw(data) {
     else bias = higherLow ? '상승' : '하락';            // 구조 전환 중(CHoCH) - 더 최근에 깨진 쪽을 따라감
   }
 
-  // ── Premium/Discount 존 (OTE) ─────────────────────────
-  // 스윙 저점~고점 구간의 50%(균형가) 및 61.8~79% 되돌림(최적 진입구간) 표시
-  if (layers.ote && hh > ll) {
+  // ── Premium/Discount 존 ────────────────────────────────
+  // 스윙 저점~고점 구간의 50%(균형가) 표시. 예전엔 "OTE 존" 토글에
+  // 같이 묶여있어서, 그걸 끄면 프리미엄/디스카운트 배경까지 같이
+  // 사라지는 문제가 있었음 — 이제 서로 독립적으로 동작하게 분리함.
+  if (hh > ll) {
     const range = hh - ll;
     const t1 = recent[0].time, t2 = lastTime;
     const eq = ll + range*0.5;
@@ -939,12 +941,15 @@ function analyzeAndDraw(data) {
     _pdBounds = { hh, eq, ll, t1 };
     updatePDZoneDivs();
 
-    // 상승 바이어스면 저점 쪽(디스카운트) OTE, 하락 바이어스면 고점 쪽(프리미엄) OTE
-    let oteLow, oteHigh;
-    if (bias === '하락') { oteLow = ll+range*0.618; oteHigh = ll+range*0.79; }
-    else { oteLow = ll+range*0.21; oteHigh = ll+range*0.382; }
-    const s = addBox(t1, t2, oteLow, oteHigh, 'rgba(180,80,255,0.15)', '#b450ff', 1);
-    oteBoxes.push(s);
+    // OTE(61.8~79% 되돌림 구간)는 원래 토글대로 "OTE 존" 켰을 때만.
+    if (layers.ote) {
+      // 상승 바이어스면 저점 쪽(디스카운트) OTE, 하락 바이어스면 고점 쪽(프리미엄) OTE
+      let oteLow, oteHigh;
+      if (bias === '하락') { oteLow = ll+range*0.618; oteHigh = ll+range*0.79; }
+      else { oteLow = ll+range*0.21; oteHigh = ll+range*0.382; }
+      const s = addBox(t1, t2, oteLow, oteHigh, 'rgba(180,80,255,0.15)', '#b450ff', 1);
+      oteBoxes.push(s);
+    }
   }
 
   // ── 세션(킬존/AMD/실버불릿) 배지는 실시간 타이머로 별도 갱신됨 (updateSessionBadges) ──
