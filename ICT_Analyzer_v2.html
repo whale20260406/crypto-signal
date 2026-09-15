@@ -503,43 +503,53 @@ let _pdBounds = null; // {hh, eq, ll, t1} — analyzeAndDraw()에서 갱신
 
 // 프리미엄/디스카운트 DOM 레이어를 현재 화면 좌표에 맞춰 다시 그린다.
 function updatePDZoneDivs() {
-  const premiumEl = document.getElementById('premiumZone');
-  const discountEl = document.getElementById('discountZone');
-  if (!premiumEl || !discountEl) return;
-  if (!_pdBounds || !chart || !candleSeries) {
-    premiumEl.style.display = 'none';
-    discountEl.style.display = 'none';
-    return;
-  }
-  const { hh, eq, ll, t1 } = _pdBounds;
-  const yHH = candleSeries.priceToCoordinate(hh);
-  const yEQ = candleSeries.priceToCoordinate(eq);
-  const yLL = candleSeries.priceToCoordinate(ll);
-  const xStart = chart.timeScale().timeToCoordinate(t1);
-  const chartEl = document.getElementById('chart');
-  if (yHH==null || yEQ==null || yLL==null || xStart==null || !chartEl) {
-    premiumEl.style.display = 'none';
-    discountEl.style.display = 'none';
-    return;
-  }
-  const left = Math.max(xStart, 0);
-  const width = chartEl.clientWidth - left;
-  if (width <= 0) {
-    premiumEl.style.display = 'none';
-    discountEl.style.display = 'none';
-    return;
-  }
-  premiumEl.style.display = 'block';
-  premiumEl.style.left = left + 'px';
-  premiumEl.style.top = yHH + 'px';
-  premiumEl.style.width = width + 'px';
-  premiumEl.style.height = Math.max(yEQ - yHH, 0) + 'px';
+  try {
+    const premiumEl = document.getElementById('premiumZone');
+    const discountEl = document.getElementById('discountZone');
+    if (!premiumEl || !discountEl) { console.warn('[PD존] premiumZone/discountZone 요소를 못 찾음'); return; }
+    if (!_pdBounds || !chart || !candleSeries) {
+      premiumEl.style.display = 'none';
+      discountEl.style.display = 'none';
+      return;
+    }
+    const { hh, eq, ll, t1 } = _pdBounds;
+    const yHH = candleSeries.priceToCoordinate(hh);
+    const yEQ = candleSeries.priceToCoordinate(eq);
+    const yLL = candleSeries.priceToCoordinate(ll);
+    let xStart = chart.timeScale().timeToCoordinate(t1);
+    const chartEl = document.getElementById('chart');
+    if (!chartEl) { console.warn('[PD존] #chart 요소를 못 찾음'); return; }
+    // t1이 화면 왼쪽 바깥으로 스크롤되어 있으면 timeToCoordinate가
+    // null을 줄 수 있음 — 이 경우 숨기지 말고 그냥 화면 왼쪽 끝(0)부터
+    // 그려준다 (구간 자체는 여전히 화면 안에 걸쳐있을 수 있으므로).
+    if (xStart == null) xStart = 0;
+    if (yHH==null || yEQ==null || yLL==null) {
+      console.warn('[PD존] 가격→좌표 변환 실패', {hh, eq, ll, yHH, yEQ, yLL});
+      premiumEl.style.display = 'none';
+      discountEl.style.display = 'none';
+      return;
+    }
+    const left = Math.max(xStart, 0);
+    const width = chartEl.clientWidth - left;
+    if (width <= 0) {
+      premiumEl.style.display = 'none';
+      discountEl.style.display = 'none';
+      return;
+    }
+    premiumEl.style.display = 'block';
+    premiumEl.style.left = left + 'px';
+    premiumEl.style.top = yHH + 'px';
+    premiumEl.style.width = width + 'px';
+    premiumEl.style.height = Math.max(yEQ - yHH, 0) + 'px';
 
-  discountEl.style.display = 'block';
-  discountEl.style.left = left + 'px';
-  discountEl.style.top = yEQ + 'px';
-  discountEl.style.width = width + 'px';
-  discountEl.style.height = Math.max(yLL - yEQ, 0) + 'px';
+    discountEl.style.display = 'block';
+    discountEl.style.left = left + 'px';
+    discountEl.style.top = yEQ + 'px';
+    discountEl.style.width = width + 'px';
+    discountEl.style.height = Math.max(yLL - yEQ, 0) + 'px';
+  } catch (e) {
+    console.error('[PD존] updatePDZoneDivs 오류:', e);
+  }
 }
 
 // ─── SCROLL RESTORE ───────────────────────────────────────
